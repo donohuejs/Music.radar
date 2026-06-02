@@ -1,13 +1,6 @@
 import { useState, useRef } from "react";
 
-const QUICK_LOCATIONS = [
-  { label: "Greenville", value: "Greenville, SC" },
-  { label: "Greer", value: "Greer, SC" },
-  { label: "Spartanburg", value: "Spartanburg, SC" },
-  { label: "Asheville", value: "Asheville, NC" },
-  { label: "Charlotte", value: "Charlotte, NC" },
-  { label: "Atlanta", value: "Atlanta, GA" },
-];
+const RADIUS_OPTIONS = [5, 10, 25, 50, 100];
 
 const DATE_OPTIONS = [
   { label: "Tonight", value: "tonight" },
@@ -26,28 +19,74 @@ function Spinner() {
 }
 
 export default function App() {
-  const [location, setLocation] = useState("Greenville, SC");
-  const [customLocation, setCustomLocation] = useState("");
-  const [useCustom, setUseCustom] = useState(false);
+  const [locationInput, setLocationInput] = useState("");
+  const [locationDisplay, setLocationDisplay] = useState("");
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState(null);
+  const [radius, setRadius] = useState(25);
   const [dateRange, setDateRange] = useState("tonight");
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const resultsRef = useRef(null);
 
-  const activeLocation = useCustom ? customLocation : location;
+  const activeLocation = locationDisplay || locationInput;
+  const canSearch = activeLocation.trim().length > 0;
+
+  async function useCurrentLocation() {
+    setGpsError(null);
+    setGpsLoading(true);
+    setLocationInput("");
+    setLocationDisplay("");
+
+    if (!navigator.geolocation) {
+      setGpsError("Geolocation not supported on this device.");
+      setGpsLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+          );
+          const data = await res.json();
+          const city =
+            data.address.city ||
+            data.address.town ||
+            data.address.village ||
+            data.address.county ||
+            "your location";
+          const state = data.address.state || "";
+          const label = state ? `${city}, ${state}` : city;
+          setLocationDisplay(label);
+        } catch {
+          setLocationDisplay(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        }
+        setGpsLoading(false);
+      },
+      () => {
+        setGpsError("Couldn't get your location. Try typing it in.");
+        setGpsLoading(false);
+      }
+    );
+  }
 
   async function fetchEvents() {
-    if (!activeLocation.trim()) return;
+    if (!canSearch) return;
     setLoading(true);
     setError(null);
     setResults(null);
+
+    const locationWithRadius = `${activeLocation} (within ${radius} miles)`;
 
     try {
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ location: activeLocation, dateRange }),
+        body: JSON.stringify({ location: locationWithRadius, dateRange }),
       });
 
       const data = await res.json();
@@ -84,12 +123,8 @@ export default function App() {
           -webkit-font-smoothing: antialiased;
         }
 
-        #root {
-          min-height: 100vh;
-          padding-bottom: 60px;
-        }
+        #root { min-height: 100vh; padding-bottom: 60px; }
 
-        /* ── Header ── */
         .header {
           padding: 44px 24px 28px;
           text-align: center;
@@ -121,13 +156,8 @@ export default function App() {
           margin-bottom: 8px;
         }
         h1 span { color: #a78bfa; }
-        .subtitle {
-          color: #5a5a7a;
-          font-size: 14px;
-          font-weight: 300;
-        }
+        .subtitle { color: #5a5a7a; font-size: 14px; font-weight: 300; }
 
-        /* ── Cards ── */
         .card {
           background: #13131f;
           border: 1px solid #1e1e30;
@@ -144,52 +174,131 @@ export default function App() {
           margin-bottom: 12px;
         }
 
-        /* ── Location chips ── */
-        .quick-chips {
+        .gps-btn {
+          width: 100%;
           display: flex;
-          flex-wrap: wrap;
+          align-items: center;
+          justify-content: center;
           gap: 8px;
-          margin-bottom: 12px;
-        }
-        .chip {
           background: #1a1a2e;
           border: 1px solid #2a2a45;
-          border-radius: 20px;
-          padding: 7px 14px;
-          font-size: 13px;
-          color: #9090b8;
+          border-radius: 12px;
+          padding: 13px 16px;
+          color: #a78bfa;
+          font-size: 14px;
+          font-weight: 500;
+          font-family: 'DM Sans', sans-serif;
           cursor: pointer;
           transition: all 0.15s;
-          font-family: 'DM Sans', sans-serif;
+          margin-bottom: 12px;
         }
-        .chip:hover { border-color: #7c3aed; color: #c4b5fd; }
-        .chip.active {
-          background: #2d1b6e;
-          border-color: #7c3aed;
-          color: #c4b5fd;
+        .gps-btn:hover { border-color: #7c3aed; background: #1e1535; }
+        .gps-btn.active { border-color: #7c3aed; background: #1e1535; color: #c4b5fd; }
+
+        .divider-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 12px;
         }
-        .custom-input {
+        .divider-line { flex: 1; height: 1px; background: #1e1e30; }
+        .divider-or {
+          font-family: 'Space Mono', monospace;
+          font-size: 10px;
+          color: #3a3a5a;
+          letter-spacing: 2px;
+        }
+
+        .location-input {
           width: 100%;
           background: #0f0f1a;
           border: 1px solid #2a2a45;
           border-radius: 10px;
-          padding: 11px 14px;
+          padding: 12px 14px;
           color: #e8e8f0;
-          font-size: 14px;
+          font-size: 15px;
           font-family: 'DM Sans', sans-serif;
           outline: none;
           transition: border-color 0.15s;
-          margin-top: 4px;
         }
-        .custom-input:focus { border-color: #7c3aed; }
-        .custom-input::placeholder { color: #3a3a5a; }
+        .location-input:focus { border-color: #7c3aed; }
+        .location-input::placeholder { color: #3a3a5a; }
 
-        /* ── Date chips ── */
-        .date-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
+        .gps-detected {
+          display: flex;
+          align-items: center;
           gap: 8px;
+          background: #1e1535;
+          border: 1px solid #3d2d6e;
+          border-radius: 10px;
+          padding: 11px 14px;
+          margin-top: 0;
         }
+        .gps-dot {
+          width: 8px; height: 8px;
+          border-radius: 50%;
+          background: #a78bfa;
+          flex-shrink: 0;
+          animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        .gps-location-text {
+          font-size: 14px;
+          color: #c4b5fd;
+          font-weight: 500;
+          flex: 1;
+        }
+        .gps-clear {
+          background: none;
+          border: none;
+          color: #5a5a7a;
+          font-size: 18px;
+          cursor: pointer;
+          padding: 0 2px;
+          line-height: 1;
+        }
+        .gps-clear:hover { color: #9090b8; }
+        .gps-error {
+          font-size: 12px;
+          color: #f87171;
+          margin-top: 8px;
+          font-family: 'Space Mono', monospace;
+        }
+
+        .radius-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 10px;
+        }
+        .radius-value {
+          font-family: 'Space Mono', monospace;
+          font-size: 13px;
+          color: #a78bfa;
+        }
+        .radius-options { display: flex; gap: 6px; }
+        .radius-chip {
+          background: #1a1a2e;
+          border: 1px solid #2a2a45;
+          border-radius: 8px;
+          padding: 6px 12px;
+          font-size: 12px;
+          color: #9090b8;
+          cursor: pointer;
+          transition: all 0.15s;
+          font-family: 'Space Mono', monospace;
+        }
+        .radius-chip:hover { border-color: #7c3aed; color: #c4b5fd; }
+        .radius-chip.active {
+          background: #2d1b6e;
+          border-color: #7c3aed;
+          color: #c4b5fd;
+        }
+
+        .date-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .date-chip {
           background: #1a1a2e;
           border: 1px solid #2a2a45;
@@ -203,13 +312,8 @@ export default function App() {
           font-family: 'DM Sans', sans-serif;
         }
         .date-chip:hover { border-color: #7c3aed; color: #c4b5fd; }
-        .date-chip.active {
-          background: #2d1b6e;
-          border-color: #7c3aed;
-          color: #c4b5fd;
-        }
+        .date-chip.active { background: #2d1b6e; border-color: #7c3aed; color: #c4b5fd; }
 
-        /* ── Search button ── */
         .search-btn {
           display: block;
           width: calc(100% - 32px);
@@ -235,14 +339,7 @@ export default function App() {
         .search-btn:active:not(:disabled) { transform: translateY(0); }
         .search-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
-        /* ── Spinner ── */
-        .spinner-wrap {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 16px;
-          padding: 52px 0;
-        }
+        .spinner-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 52px 0; }
         .spinner {
           width: 38px; height: 38px;
           border: 3px solid #1e1e30;
@@ -251,41 +348,14 @@ export default function App() {
           animation: spin 0.75s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner-text {
-          font-family: 'Space Mono', monospace;
-          font-size: 11px;
-          letter-spacing: 3px;
-          color: #a78bfa;
-          text-transform: uppercase;
-        }
+        .spinner-text { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 3px; color: #a78bfa; text-transform: uppercase; }
 
-        /* ── Results ── */
-        .results-header {
-          padding: 28px 16px 4px;
-        }
-        .results-meta {
-          font-family: 'Space Mono', monospace;
-          font-size: 10px;
-          color: #4a4a6a;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          margin-bottom: 4px;
-        }
-        .results-title {
-          font-size: 22px;
-          font-weight: 600;
-          color: #e8e8f0;
-        }
+        .results-header { padding: 28px 16px 4px; }
+        .results-meta { font-family: 'Space Mono', monospace; font-size: 10px; color: #4a4a6a; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+        .results-title { font-size: 22px; font-weight: 600; color: #e8e8f0; }
         .results-title span { color: #a78bfa; }
 
-        .category-heading {
-          font-family: 'Space Mono', monospace;
-          font-size: 10px;
-          letter-spacing: 3px;
-          color: #7c3aed;
-          text-transform: uppercase;
-          margin: 22px 16px 10px;
-        }
+        .category-heading { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 3px; color: #7c3aed; text-transform: uppercase; margin: 22px 16px 10px; }
 
         .event-card {
           background: #13131f;
@@ -305,136 +375,88 @@ export default function App() {
           background: linear-gradient(180deg, #7c3aed, #4f46e5);
         }
         .event-card:hover { border-color: #2d2d50; }
-
-        .event-artist {
-          font-size: 16px;
-          font-weight: 600;
-          color: #fff;
-          margin-bottom: 3px;
-        }
-        .event-venue {
-          font-size: 13px;
-          color: #6060a0;
-          margin-bottom: 10px;
-        }
-        .event-tags {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          margin-bottom: 8px;
-        }
-        .tag {
-          border-radius: 6px;
-          padding: 3px 9px;
-          font-size: 11px;
-          font-family: 'Space Mono', monospace;
-        }
+        .event-artist { font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 3px; }
+        .event-venue { font-size: 13px; color: #6060a0; margin-bottom: 10px; }
+        .event-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .tag { border-radius: 6px; padding: 3px 9px; font-size: 11px; font-family: 'Space Mono', monospace; }
         .tag-time { background: #1e1535; border: 1px solid #3d2d6e; color: #a78bfa; }
         .tag-genre { background: #1a1a2e; border: 1px solid #2a2a45; color: #6060a0; }
         .tag-tickets { background: #0f2018; border: 1px solid #1a3d30; color: #6ee7b7; }
+        .event-desc { font-size: 12px; color: #50507a; line-height: 1.55; font-style: italic; }
 
-        .event-desc {
-          font-size: 12px;
-          color: #50507a;
-          line-height: 1.55;
-          font-style: italic;
-        }
-
-        /* ── Scout tip ── */
-        .tip-card {
-          background: #13131f;
-          border: 1px solid #2d1b6e;
-          border-radius: 14px;
-          padding: 18px;
-          margin: 20px 16px 0;
-          display: flex;
-          gap: 12px;
-          align-items: flex-start;
-        }
+        .tip-card { background: #13131f; border: 1px solid #2d1b6e; border-radius: 14px; padding: 18px; margin: 20px 16px 0; display: flex; gap: 12px; align-items: flex-start; }
         .tip-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
-        .tip-label {
-          font-family: 'Space Mono', monospace;
-          font-size: 10px;
-          letter-spacing: 2px;
-          color: #c4b5fd;
-          text-transform: uppercase;
-          margin-bottom: 5px;
-        }
+        .tip-label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #c4b5fd; text-transform: uppercase; margin-bottom: 5px; }
         .tip-text { font-size: 13px; color: #9090b8; line-height: 1.6; }
 
-        /* ── Error ── */
-        .error-box {
-          background: #1a1015;
-          border: 1px solid #3d1a1a;
-          border-radius: 14px;
-          padding: 24px;
-          margin: 20px 16px;
-          text-align: center;
-        }
+        .error-box { background: #1a1015; border: 1px solid #3d1a1a; border-radius: 14px; padding: 24px; margin: 20px 16px; text-align: center; }
         .error-icon { font-size: 28px; margin-bottom: 10px; }
         .error-msg { color: #f87171; font-size: 14px; }
 
-        /* ── Reset ── */
         .divider { height: 1px; background: #1e1e30; margin: 28px 16px 0; }
-        .clear-btn {
-          display: block;
-          margin: 16px auto 0;
-          background: none;
-          border: 1px solid #2a2a45;
-          border-radius: 8px;
-          padding: 9px 22px;
-          color: #4a4a6a;
-          font-size: 11px;
-          cursor: pointer;
-          font-family: 'Space Mono', monospace;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          transition: all 0.15s;
-        }
+        .clear-btn { display: block; margin: 16px auto 0; background: none; border: 1px solid #2a2a45; border-radius: 8px; padding: 9px 22px; color: #4a4a6a; font-size: 11px; cursor: pointer; font-family: 'Space Mono', monospace; letter-spacing: 2px; text-transform: uppercase; transition: all 0.15s; }
         .clear-btn:hover { color: #9090b8; border-color: #3a3a5a; }
       `}</style>
 
-      {/* Header */}
       <div className="header">
         <div className="logo-eyebrow">🎵 Live Music Radar</div>
         <h1>Find the <span>Scene</span></h1>
         <p className="subtitle">AI-powered local music discovery</p>
       </div>
 
-      {/* Location */}
       <div className="card">
         <div className="section-label">Location</div>
-        <div className="quick-chips">
-          {QUICK_LOCATIONS.map((loc) => (
-            <button
-              key={loc.value}
-              className={`chip ${!useCustom && location === loc.value ? "active" : ""}`}
-              onClick={() => { setLocation(loc.value); setUseCustom(false); }}
-            >
-              {loc.label}
-            </button>
-          ))}
-          <button
-            className={`chip ${useCustom ? "active" : ""}`}
-            onClick={() => setUseCustom(true)}
-          >
-            ✈ Traveling...
-          </button>
-        </div>
-        {useCustom && (
-          <input
-            className="custom-input"
-            type="text"
-            placeholder="Any city — e.g. New Orleans, LA or London, UK"
-            value={customLocation}
-            onChange={(e) => setCustomLocation(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && fetchEvents()}
-            autoFocus
-          />
+        <button
+          className={`gps-btn ${locationDisplay ? "active" : ""}`}
+          onClick={useCurrentLocation}
+          disabled={gpsLoading}
+        >
+          {gpsLoading ? "📡 Detecting..." : "📍 Use My Current Location"}
+        </button>
+        {gpsError && <div className="gps-error">{gpsError}</div>}
+        {locationDisplay ? (
+          <div className="gps-detected">
+            <div className="gps-dot" />
+            <span className="gps-location-text">{locationDisplay}</span>
+            <button className="gps-clear" onClick={() => setLocationDisplay("")}>×</button>
+          </div>
+        ) : (
+          <>
+            <div className="divider-row">
+              <div className="divider-line" />
+              <span className="divider-or">OR</span>
+              <div className="divider-line" />
+            </div>
+            <input
+              className="location-input"
+              type="text"
+              placeholder="City, state or zip code"
+              value={locationInput}
+              onChange={(e) => setLocationInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && fetchEvents()}
+            />
+          </>
         )}
       </div>
 
-      {/* Date */}
+      <div className="card">
+        <div className="radius-row">
+          <div className="section-label" style={{marginBottom: 0}}>Radius</div>
+          <div className="radius-value">{radius} miles</div>
+        </div>
+        <div className="radius-options">
+          {RADIUS_OPTIONS.map((r) => (
+            <button
+              key={r}
+              className={`radius-chip ${radius === r ? "active" : ""}`}
+              onClick={() => setRadius(r)}
+            >
+              {r}mi
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="card">
         <div className="section-label">When</div>
         <div className="date-grid">
@@ -453,15 +475,13 @@ export default function App() {
       <button
         className="search-btn"
         onClick={fetchEvents}
-        disabled={loading || !activeLocation.trim()}
+        disabled={loading || !canSearch}
       >
         {loading ? "Searching..." : "Find Shows"}
       </button>
 
-      {/* Loading */}
       {loading && <Spinner />}
 
-      {/* Error */}
       {error && !loading && (
         <div className="error-box">
           <div className="error-icon">🎸</div>
@@ -469,7 +489,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Results */}
       {results && !loading && (
         <div ref={resultsRef}>
           <div className="results-header">
@@ -478,7 +497,6 @@ export default function App() {
               <span>{totalEvents}</span> {totalEvents === 1 ? "show" : "shows"} found
             </div>
           </div>
-
           {results.categories?.map((cat) => (
             <div key={cat.name}>
               <div className="category-heading">{cat.name}</div>
@@ -504,7 +522,6 @@ export default function App() {
               ))}
             </div>
           ))}
-
           {results.tip && (
             <div className="tip-card">
               <div className="tip-icon">💡</div>
@@ -514,7 +531,6 @@ export default function App() {
               </div>
             </div>
           )}
-
           <div className="divider" />
           <button className="clear-btn" onClick={() => setResults(null)}>
             New Search
