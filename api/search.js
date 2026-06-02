@@ -17,7 +17,21 @@ module.exports = async function handler(req, res) {
     month: "long", day: "numeric", year: "numeric",
   });
 
-  const prompt = `Search for live music events happening ${dateRange} (today is ${today}) in ${location}. Find specific artists, venues, and times.`;
+  const prompt = `Search for live music events happening ${dateRange} (today is ${today}) in ${location}. 
+
+Find as many real, specific events as you can. Be very careful about dates — double-check that the day of the week matches the date (e.g. don't say Thursday June 5 if June 5 is a Friday). Only include events you are confident about.
+
+Group results into exactly these four categories (omit any with no results):
+1. "Headliners & Major Shows" - ticketed concerts at major venues
+2. "Bars & Local Venues" - smaller bars, breweries, restaurants with live music
+3. "Free & Outdoor" - free admission or outdoor events
+4. "Family Friendly" - daytime, all-ages, or kid-friendly events (can overlap with above)
+
+Sort all events by date and time, earliest first.
+
+Return ONLY this JSON object, no other text:
+{"location":"...","dateRange":"...","categories":[{"name":"...","events":[{"artist":"...","venue":"...","time":"...","genre":"...","tickets":"...","description":"..."}]}],"tip":"..."}`;
+;
 
   try {
     // First call - triggers web search
