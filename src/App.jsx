@@ -80,13 +80,14 @@ export default function App() {
     setError(null);
     setResults(null);
 
-    const locationWithRadius = `${activeLocation} (within ${radius} miles)`;
+    
 
     try {
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ location: locationWithRadius, dateRange }),
+        body: JSON.stringify({ location: activeLocation, dateRange, radius }),
+
       });
 
       const data = await res.json();
