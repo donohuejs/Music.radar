@@ -18,14 +18,7 @@ module.exports = async function handler(req, res) {
     month: "long", day: "numeric", year: "numeric",
   });
 
-  const prompt = `Search for live music events happening ${dateRange} (today is ${today}) in ${location}.
-
-You MUST respond with ONLY a raw JSON object. No text before it, no text after it, no explanation, no "Based on my search", nothing except the JSON object itself starting with { and ending with }.
-
-{"location":"...","dateRange":"...","categories":[{"name":"...","events":[{"artist":"...","venue":"...","time":"...","genre":"...","tickets":"...","description":"..."}]}],"tip":"..."}
-
-Omit categories with no results. If no events found: {"error":"No events found for this location and date range."}`;
-
+  const prompt = `Search for live music events happening ${dateRange} (today is ${today}) in ${location}. Return ONLY a JSON object, nothing else. Format: {"location":"...","dateRange":"...","categories":[{"name":"...","events":[{"artist":"...","venue":"...","time":"...","genre":"...","tickets":"...","description":"..."}]}],"tip":"..."}`;
 
   try {
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
@@ -36,19 +29,33 @@ Omit categories with no results. If no events found: {"error":"No events found f
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 1500,
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2000,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages: [{ role: "user", content: prompt }],
       }),
     });
 
     const data = await anthropicRes.json();
-    const textBlock = data.content?.find((b) => b.type === "text");
-    if (!textBlock) return res.status(500).json({ error: "No response from AI. Please try again." });
 
-    const cleaned = textBlock.text.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
+    if (data.error) {
+      return res.status(500).json({ error: data.error.message });
+    }
+
+    const textBlock = data.content?.find((b) => b.type === "text");
+    if (!textBlock) {
+      return res.status(500).json({ error: "No response from AI. Please try again." });
+    }
+
+    const raw = textBlock.text;
+
+    // Extract JSON even if there's text around it
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) {
+      return res.status(500).json({ error: "Could not parse results. Please try again." });
+    }
+
+    const parsed = JSON.parse(match[0]);
     return res.status(200).json(parsed);
 
   } catch (err) {
