@@ -8,7 +8,7 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: "API key not configured" });
   }
 
-  const { location, dateRange } = req.body || {};
+  const { location, dateRange, radius } = req.body || {};
   if (!location || !dateRange) {
     return res.status(400).json({ error: "Missing location or dateRange" });
   }
@@ -18,7 +18,6 @@ module.exports = async function handler(req, res) {
   });
 
   try {
-    // Call 1 - Sonnet searches
     const firstRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -32,7 +31,16 @@ module.exports = async function handler(req, res) {
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages: [{
           role: "user",
-          content: `Find live music events ${dateRange} (today is ${today}) in ${location}. Search these venues: radioroomgreenville.com/events, fireforge.beer, doublestampbrewery.com, thepeacecenter.org, swansonswarehouse.com/calendar, prekindle.com/events/swansons-warehouse, smileysontherox.com, foundrygvl.com/events, bluesboulevard.com, 3friendsbargrill.com, wildyarrow.com, seratonic.com. Also check Eventbrite and Bandsintown. List every event with artist, venue, date, day of week, time, and price.`,
+          content: `You are a local music scout. Find live music events happening ${dateRange} (today is ${today}) within ${radius || 25} miles of ${location}.
+
+Use this search strategy:
+1. Search Eventbrite, Bandsintown, Songkick, and Facebook Events for live music in ${location} ${dateRange}
+2. Find the top local music venues in the area and check their event pages directly
+3. Search for free outdoor concerts, festivals, and community events in the area
+4. Look for brewery, bar, and restaurant live music listings
+5. For each event find the exact ARTIST or BAND NAME (never an age restriction like "Ages 18+" or venue policy text), venue name, full date, day of week, time, and ticket price or cover charge
+
+Cast as wide a net as possible — include everything from major ticketed shows to free bar performances. The more events the better.`,
         }],
       }),
     });
@@ -49,7 +57,6 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: "No search results. Please try again." });
     }
 
-    // Call 2 - Haiku formats
     const secondRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -62,7 +69,15 @@ module.exports = async function handler(req, res) {
         max_tokens: 2500,
         messages: [{
           role: "user",
-          content: `Format these live music events into JSON. Sort by date/time earliest first. Verify day of week matches date. Include full date+time like "Fri Jun 6 • 8:00 PM". Categories: "Headliners & Major Shows", "Bars & Local Venues", "Free & Outdoor", "Family Friendly". Omit empty categories. Return ONLY raw JSON:
+          content: `Format these live music events into JSON. Rules:
+- Sort by date and time, earliest first
+- Verify day of week matches the actual date
+- Include full date and time like "Fri Jun 6 • 8:00 PM"
+- If an artist field contains an age restriction like "Ages 5+" or "18+" skip that event entirely
+- Categorize into: "Headliners & Major Shows", "Bars & Local Venues", "Free & Outdoor", "Family Friendly"
+- Omit any category with no events
+- Return ONLY raw JSON, no other text
+
 {"location":"...","dateRange":"...","categories":[{"name":"...","events":[{"artist":"...","venue":"...","time":"...","genre":"...","tickets":"...","description":"..."}]}],"tip":"..."}
 
 Events to format:
