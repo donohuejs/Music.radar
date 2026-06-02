@@ -18,7 +18,7 @@ module.exports = async function handler(req, res) {
     month: "long", day: "numeric", year: "numeric",
   });
 
-  const prompt = `Search for live music events happening ${dateRange} (today is ${today}) in ${location}. Return ONLY a JSON object, nothing else. Format: {"location":"...","dateRange":"...","categories":[{"name":"...","events":[{"artist":"...","venue":"...","time":"...","genre":"...","tickets":"...","description":"..."}]}],"tip":"..."}`;
+  const prompt = `Search for live music events happening ${dateRange} (today is ${today}) in ${location}. Return ONLY a JSON object, no other text: {"location":"...","dateRange":"...","categories":[{"name":"...","events":[{"artist":"...","venue":"...","time":"...","genre":"...","tickets":"...","description":"..."}]}],"tip":"..."}`;
 
   try {
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
@@ -42,15 +42,17 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: data.error.message });
     }
 
-    const textBlock = data.content?.find((b) => b.type === "text");
-    if (!textBlock) {
+    // Grab ALL text blocks and concatenate them
+    const allText = (data.content || [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+
+    if (!allText) {
       return res.status(500).json({ error: "No response from AI. Please try again." });
     }
 
-    const raw = textBlock.text;
-
-    // Extract JSON even if there's text around it
-    const match = raw.match(/\{[\s\S]*\}/);
+    const match = allText.match(/\{[\s\S]*\}/);
     if (!match) {
       return res.status(500).json({ error: "Could not parse results. Please try again." });
     }
