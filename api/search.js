@@ -9,7 +9,6 @@ module.exports = async function handler(req, res) {
   }
 
   const { location, dateRange } = req.body || {};
-
   if (!location || !dateRange) {
     return res.status(400).json({ error: "Missing location or dateRange" });
   }
@@ -18,10 +17,11 @@ module.exports = async function handler(req, res) {
     month: "long", day: "numeric", year: "numeric",
   });
 
-  const prompt = `Search for live music events happening ${dateRange} (today is ${today}) in ${location}. Return ONLY a JSON object, no other text: {"location":"...","dateRange":"...","categories":[{"name":"...","events":[{"artist":"...","venue":"...","time":"...","genre":"...","tickets":"...","description":"..."}]}],"tip":"..."}`;
+  const prompt = `Search for live music events happening ${dateRange} (today is ${today}) in ${location}. Find specific artists, venues, and times.`;
 
   try {
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+    // First call - triggers web search
+    const firstRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -36,26 +36,44 @@ module.exports = async function handler(req, res) {
       }),
     });
 
-    const data = await anthropicRes.json();
+    const firstData = await firstRes.json();
+    if (firstData.error) return res.status(500).json({ error: firstData.error.message });
 
-    if (data.error) {
-      return res.status(500).json({ error: data.error.message });
-    }
+    // Build conversation history with search results
+    const messages = [
+      { role: "user", content: prompt },
+      { role: "assistant", content: firstData.content },
+      {
+        role: "user",
+        content: `Now format everything you found as ONLY this JSON object with no other text:
+{"location":"${location}","dateRange":"${dateRange}","categories":[{"name":"Headliners & Major Shows","events":[{"artist":"...","venue":"...","time":"...","genre":"...","tickets":"...","description":"..."}]},{"name":"Bars & Local Venues","events":[]}],"tip":"..."}
+Only include categories that have events. Return raw JSON only.`,
+      },
+    ];
 
-    // Grab ALL text blocks and concatenate them
-    const allText = (data.content || [])
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("");
+    // Second call - format results as JSON
+    const secondRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2000,
+        messages,
+      }),
+    });
 
-    if (!allText) {
-      return res.status(500).json({ error: "No response from AI. Please try again." });
-    }
+    const secondData = await secondRes.json();
+    if (secondData.error) return res.status(500).json({ error: secondData.error.message });
 
-    const match = allText.match(/\{[\s\S]*\}/);
-    if (!match) {
-      return res.status(500).json({ error: "Could not parse results. Please try again." });
-    }
+    const textBlock = secondData.content?.find((b) => b.type === "text");
+    if (!textBlock) return res.status(500).json({ error: "No response. Please try again." });
+
+    const match = textBlock.text.match(/\{[\s\S]*\}/);
+    if (!match) return res.status(500).json({ error: "Could not parse results. Please try again." });
 
     const parsed = JSON.parse(match[0]);
     return res.status(200).json(parsed);
@@ -63,6 +81,6 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({ error: err.message || "Failed to fetch events." });
   }
-}
+};
 
 module.exports.config = { maxDuration: 60 };
