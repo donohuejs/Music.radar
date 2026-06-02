@@ -18,7 +18,6 @@ module.exports = async function handler(req, res) {
   });
 
   try {
-    // First call - focused purely on searching
     const firstRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -32,7 +31,24 @@ module.exports = async function handler(req, res) {
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages: [{
           role: "user",
-          content: `Search extensively for live music events happening ${dateRange} (today is ${today}) in ${location}. Search multiple sources including venue websites, Facebook events, Eventbrite, and local event listings. Find as many specific events as possible including bars, breweries, restaurants, outdoor venues, and major venues. For each event get the artist name, venue, address, date, day of week, time, cover charge or ticket price, and a brief description.`,
+          content: `Search for live music events happening ${dateRange} (today is ${today}) in ${location}.
+
+Specifically search these local venue websites for their event listings:
+- radioroomgreenville.com/events
+- fireforge.beer
+- doublestampbrewery.com
+- thepeacecenter.org
+- swansonswarehouse.com
+- smileysontherox.com
+- thefoundrygvl.com
+- bluesboulevard.com
+- 3friendsbargrill.com
+- wildyarrow.com
+- seratonic.com
+
+Also search Eventbrite, Facebook Events, and Bandsintown for Greenville SC events.
+
+For every event get the exact artist name, venue, date, day of week, time, and ticket price.`,
         }],
       }),
     });
@@ -40,11 +56,27 @@ module.exports = async function handler(req, res) {
     const firstData = await firstRes.json();
     if (firstData.error) return res.status(500).json({ error: firstData.error.message });
 
-    // Second call - format into JSON
     const messages = [
       {
         role: "user",
-        content: `Search extensively for live music events happening ${dateRange} (today is ${today}) in ${location}. Search multiple sources including venue websites, Facebook events, Eventbrite, and local event listings. Find as many specific events as possible including bars, breweries, restaurants, outdoor venues, and major venues. For each event get the artist name, venue, address, date, day of week, time, cover charge or ticket price, and a brief description.`,
+        content: `Search for live music events happening ${dateRange} (today is ${today}) in ${location}.
+
+Specifically search these local venue websites for their event listings:
+- radioroomgreenville.com/events
+- fireforge.beer
+- doublestampbrewery.com
+- thepeacecenter.org
+- swansonswarehouse.com
+- smileysontherox.com
+- thefoundrygvl.com
+- bluesboulevard.com
+- 3friendsbargrill.com
+- wildyarrow.com
+- seratonic.com
+
+Also search Eventbrite, Facebook Events, and Bandsintown for Greenville SC events.
+
+For every event get the exact artist name, venue, date, day of week, time, and ticket price.`,
       },
       { role: "assistant", content: firstData.content },
       {
