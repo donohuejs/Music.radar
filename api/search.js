@@ -18,7 +18,14 @@ module.exports = async function handler(req, res) {
     month: "long", day: "numeric", year: "numeric",
   });
 
-  const prompt = `You are a local music scout with access to web search. Search for live music events happening ${dateRange} (today is ${today}) in ${location}. Find as many real, specific events as you can. Group results into categories: "Headliners & Major Shows", "Bars & Local Venues", and "Free / Outdoor" (omit any category with no results). Respond ONLY with a valid JSON object, no markdown, no backticks: {"location":"...","dateRange":"...","categories":[{"name":"...","events":[{"artist":"...","venue":"...","time":"...","genre":"...","tickets":"...","description":"..."}]}],"tip":"..."}. If no events found return: {"error":"No events found for this location and date range."}`;
+  const prompt = `Search for live music events happening ${dateRange} (today is ${today}) in ${location}.
+
+You MUST respond with ONLY a raw JSON object. No text before it, no text after it, no explanation, no "Based on my search", nothing except the JSON object itself starting with { and ending with }.
+
+{"location":"...","dateRange":"...","categories":[{"name":"...","events":[{"artist":"...","venue":"...","time":"...","genre":"...","tickets":"...","description":"..."}]}],"tip":"..."}
+
+Omit categories with no results. If no events found: {"error":"No events found for this location and date range."}`;
+
 
   try {
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
