@@ -10,16 +10,19 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "API key not configured" });
   }
 
-  const { location, dateRange } = req.body;
+  let body = req.body;
+  if (typeof body === "string") {
+    try { body = JSON.parse(body); } catch { body = {}; }
+  }
+
+  const { location, dateRange } = body || {};
 
   if (!location || !dateRange) {
     return res.status(400).json({ error: "Missing location or dateRange" });
   }
 
   const today = new Date().toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
+    month: "long", day: "numeric", year: "numeric",
   });
 
   const prompt = `You are a local music scout with access to web search. Search for live music events happening ${dateRange} (today is ${today}) in ${location}.
@@ -75,11 +78,20 @@ If truly no events are found after searching, return: {"error": "No events found
     });
 
     const data = await anthropicRes.json();
+
+    if (data.error) {
+      return res.status(500).json({ error: data.error.message || "Anthropic API error" });
+    }
+
     const textBlock = data.content?.find((b) => b.type === "text");
-    const rawText = textBlock?.text || "";
-    const cleaned = rawText.replace(/```json|```/g, "").trim();
+    if (!textBlock) {
+      return res.status(500).json({ error: "No response from AI. Please try again." });
+    }
+
+    const cleaned = textBlock.text.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(cleaned);
     return res.status(200).json(parsed);
+
   } catch (err) {
     return res.status(500).json({ error: "Failed to fetch events. Please try again." });
   }
