@@ -17,6 +17,29 @@ module.exports = async function handler(req, res) {
     month: "long", day: "numeric", year: "numeric",
   });
 
+  const locationLower = location.toLowerCase();
+  const isGreenvilleArea = locationLower.includes("greenville") ||
+    locationLower.includes("greer") ||
+    locationLower.includes("spartanburg") ||
+    locationLower.includes("29") ||
+    locationLower.includes("south carolina") ||
+    locationLower.includes(", sc");
+
+  const greenvilleVenues = isGreenvilleArea ? `
+Also specifically search these local Greenville SC venue websites for their full event listings:
+- radioroomgreenville.com/events (get exact artist names, ignore age restrictions like "Ages 5+")
+- fireforge.beer
+- doublestampbrewery.com
+- thepeacecenter.org
+- swansonswarehouse.com/calendar
+- prekindle.com/events/swansons-warehouse
+- smileysontherox.com
+- foundrygvl.com/events
+- bluesboulevard.com
+- 3friendsbargrill.com
+- wildyarrow.com
+- seratonic.com` : "";
+
   try {
     const firstRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -33,14 +56,14 @@ module.exports = async function handler(req, res) {
           role: "user",
           content: `You are a local music scout. Find live music events happening ${dateRange} (today is ${today}) within ${radius || 25} miles of ${location}.
 
-Use this search strategy:
-1. Search Eventbrite, Bandsintown, Songkick, and Facebook Events for live music in ${location} ${dateRange}
-2. Find the top local music venues in the area and check their event pages directly
-3. Search for free outdoor concerts, festivals, and community events in the area
+Search strategy:
+1. Search Eventbrite, Bandsintown, Songkick, and Facebook Events for live music in the area
+2. Find top local music venues and check their event pages directly
+3. Search for free outdoor concerts, festivals, and community events
 4. Look for brewery, bar, and restaurant live music listings
-5. For each event find the exact ARTIST or BAND NAME (never an age restriction like "Ages 18+" or venue policy text), venue name, full date, day of week, time, and ticket price or cover charge
+${greenvilleVenues}
 
-Cast as wide a net as possible — include everything from major ticketed shows to free bar performances. The more events the better.`,
+For every event get the exact ARTIST or BAND NAME (never age restrictions like "Ages 18+" or "Ages 5 and up" — those are policies not artists), venue name, full date, day of week, time, and ticket price. Find as many events as possible.`,
         }],
       }),
     });
@@ -74,6 +97,7 @@ Cast as wide a net as possible — include everything from major ticketed shows 
 - Verify day of week matches the actual date
 - Include full date and time like "Fri Jun 6 • 8:00 PM"
 - If an artist field contains an age restriction like "Ages 5+" or "18+" skip that event entirely
+- If an artist name looks like a venue name or generic placeholder, skip that event
 - Categorize into: "Headliners & Major Shows", "Bars & Local Venues", "Free & Outdoor", "Family Friendly"
 - Omit any category with no events
 - Return ONLY raw JSON, no other text
