@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/search.js": {
+      "maxDuration": 30
+    },
+    "api/ingest-ticketmaster.js": {
+      "maxDuration": 60
+    }
+  }
+}
