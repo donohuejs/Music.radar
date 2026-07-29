@@ -17,6 +17,22 @@ function validateDate(value, fallback) {
   return Number.isNaN(date.getTime()) ? fallback : date;
 }
 
+async function settledSource(name, operation, fallback) {
+  try {
+    return {
+      value: await operation(),
+      health: { ok: true, error: null },
+    };
+  } catch (error) {
+    const message = error?.message || `${name} failed`;
+    console.warn(`${name} collector failed:`, message);
+    return {
+      value: fallback,
+      health: { ok: false, error: message },
+    };
+  }
+}
+
 async function fetchStoredEvents({ startDate, endDate }) {
   const db = getAdminDb();
   if (!db) return [];
@@ -43,11 +59,7 @@ async function resolveSearchLocation({ lat, lng, location }) {
   }
 
   const geocoded = await geocodeLocation(location);
-
-  return {
-    ...geocoded,
-    source: "geocoder",
-  };
+  return { ...geocoded, source: "geocoder" };
 }
 
 export default async function handler(request, response) {
@@ -85,37 +97,54 @@ export default async function handler(request, response) {
     const lat = resolvedLocation.latitude;
     const lng = resolvedLocation.longitude;
 
-    const ticketmasterPromise = process.env.TICKETMASTER_API_KEY
-      ? fetchTicketmasterEvents({
-          apiKey: process.env.TICKETMASTER_API_KEY,
-          lat,
-          lng,
-          radius,
-          startDate,
-          endDate,
-          city: resolvedLocation.displayName,
-        }).catch((error) => {
-          console.warn("Ticketmaster collector failed:", error.message);
-          return [];
-        })
-      : Promise.resolve([]);
-
-    const [storedEvents, localResult, ticketmasterEvents] = await Promise.all([
-      fetchStoredEvents({ startDate, endDate }),
-      fetchLocalVenueEvents(),
-      ticketmasterPromise,
+    const [firestore, localVenues, ticketmaster] = await Promise.all([
+      settledSource(
+        "Firestore",
+        () => fetchStoredEvents({ startDate, endDate }),
+        [],
+      ),
+      settledSource(
+        "Local venues",
+        () => fetchLocalVenueEvents(),
+        { events: [], sourceStatus: [] },
+      ),
+      process.env.TICKETMASTER_API_KEY
+        ? settledSource(
+            "Ticketmaster",
+            () =>
+              fetchTicketmasterEvents({
+                apiKey: process.env.TICKETMASTER_API_KEY,
+                lat,
+                lng,
+                radius,
+                startDate,
+                endDate,
+              }),
+            [],
+          )
+        : Promise.resolve({
+            value: [],
+            health: {
+              ok: false,
+              error: "TICKETMASTER_API_KEY is not configured.",
+            },
+          }),
     ]);
 
     const merged = mergeAndDedupe([
-      ...storedEvents,
-      ...localResult.events,
-      ...ticketmasterEvents,
+      ...firestore.value,
+      ...localVenues.value.events,
+      ...ticketmaster.value,
     ]);
 
     const filtered = attachDistanceAndFilter(merged, lat, lng, radius)
       .filter((event) => {
-        const eventDate = new Date(event.startTime);
-        return eventDate >= startDate && eventDate <= endDate;
+        const timestamp = new Date(event.startTime).getTime();
+        return (
+          Number.isFinite(timestamp) &&
+          timestamp >= startDate.getTime() &&
+          timestamp <= endDate.getTime()
+        );
       })
       .sort(
         (a, b) =>
@@ -133,15 +162,18 @@ export default async function handler(request, response) {
           source: resolvedLocation.source,
         },
         radiusMiles: radius,
-        storedCount: storedEvents.length,
-        localVenueCount: localResult.events.length,
-        liveTicketmasterCount: ticketmasterEvents.length,
+        storedCount: firestore.value.length,
+        localVenueCount: localVenues.value.events.length,
+        liveTicketmasterCount: ticketmaster.value.length,
         returnedCount: filtered.length,
         firebaseConfigured: Boolean(getAdminDb()),
-        ticketmasterConfigured: Boolean(
-          process.env.TICKETMASTER_API_KEY,
-        ),
-        localSources: localResult.sourceStatus,
+        ticketmasterConfigured: Boolean(process.env.TICKETMASTER_API_KEY),
+        localSources: localVenues.value.sourceStatus,
+        sourceHealth: {
+          firestore: firestore.health,
+          localVenues: localVenues.health,
+          ticketmaster: ticketmaster.health,
+        },
       },
     });
   } catch (error) {
