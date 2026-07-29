@@ -11,13 +11,16 @@ const DATE_OPTIONS = [
 
 function formatDate(value) {
   if (!value) return "Time TBD";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "Time TBD";
+
   return new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function EventCard({ event }) {
@@ -121,16 +124,27 @@ export default function App() {
 
     try {
       const response = await fetch(`/api/search?${params.toString()}`);
-      const body = await response.json();
+      const text = await response.text();
+      let body;
+
+      try {
+        body = JSON.parse(text);
+      } catch {
+        throw new Error(
+          response.ok
+            ? "Search returned an invalid response."
+            : `Search failed with HTTP ${response.status}.`,
+        );
+      }
 
       if (!response.ok) {
         throw new Error(body.error || "Search failed.");
       }
 
-      setEvents(body.events || []);
+      setEvents(Array.isArray(body.events) ? body.events : []);
       setStatus("success");
     } catch (error) {
-      setMessage(error.message);
+      setMessage(error.message || "Search failed.");
       setStatus("error");
     }
   }
