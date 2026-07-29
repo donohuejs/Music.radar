@@ -6,6 +6,7 @@ import {
 import { geocodeLocation } from "../lib/server/geocode.js";
 import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 import { fetchTicketmasterEvents } from "../lib/server/ticketmaster.js";
+import { EVENT_CATEGORIES } from "../lib/server/eventCategory.js";
 
 function parseNumber(value) {
   const parsed = Number(value);
@@ -81,6 +82,13 @@ export default async function handler(request, response) {
     100,
   );
   const location = String(request.query.location || "").trim();
+  const requestedCategory = String(request.query.category || "all")
+    .trim()
+    .toLowerCase();
+  const category =
+    requestedCategory === "all" || EVENT_CATEGORIES.includes(requestedCategory)
+      ? requestedCategory
+      : "all";
 
   if ((requestedLat === null || requestedLng === null) && !location) {
     return response
@@ -146,6 +154,7 @@ export default async function handler(request, response) {
           timestamp <= endDate.getTime()
         );
       })
+      .filter((event) => category === "all" || event.category === category)
       .sort(
         (a, b) =>
           new Date(a.startTime).getTime() -
@@ -162,6 +171,7 @@ export default async function handler(request, response) {
           source: resolvedLocation.source,
         },
         radiusMiles: radius,
+        category,
         storedCount: firestore.value.length,
         localVenueCount: localVenues.value.events.length,
         liveTicketmasterCount: ticketmaster.value.length,

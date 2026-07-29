@@ -8,6 +8,12 @@ const DATE_OPTIONS = [
   { label: "This weekend", value: "weekend" },
   { label: "Next 7 days", value: "week" },
 ];
+const CATEGORY_OPTIONS = [
+  { label: "Live music", value: "music" },
+  { label: "Theater", value: "theater" },
+  { label: "Comedy", value: "comedy" },
+  { label: "All events", value: "all" },
+];
 
 function formatDate(value) {
   if (!value) return "Time TBD";
@@ -49,6 +55,7 @@ function EventCard({ event }) {
 
         <div className="event-card__meta">
           <span>{event.sourceName || "Event source"}</span>
+          {event.category ? <span>{event.category.replace("_", " ")}</span> : null}
           {event.confidence ? <span>{Math.round(event.confidence * 100)}% confidence</span> : null}
         </div>
 
@@ -67,6 +74,7 @@ export default function App() {
   const [coordinates, setCoordinates] = useState(null);
   const [radius, setRadius] = useState(25);
   const [dateOption, setDateOption] = useState("weekend");
+  const [category, setCategory] = useState("music");
   const [events, setEvents] = useState([]);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
@@ -77,7 +85,7 @@ export default function App() {
     if (status === "success") {
       return `${events.length} event${events.length === 1 ? "" : "s"} found`;
     }
-    return "National listings work anywhere. Greenville-specific sources come next.";
+    return "Search nationwide listings, enhanced by local venue coverage where available.";
   }, [events.length, message, status]);
 
   function useCurrentLocation() {
@@ -113,6 +121,7 @@ export default function App() {
       radius: String(radius),
       startDate: dates.startDate,
       endDate: dates.endDate,
+      category,
     });
 
     if (coordinates) {
@@ -196,6 +205,15 @@ export default function App() {
                 <select value={radius} onChange={(event) => setRadius(Number(event.target.value))}>
                   {RADIUS_OPTIONS.map((option) => (
                     <option key={option} value={option}>Within {option} miles</option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Category
+                <select value={category} onChange={(event) => setCategory(event.target.value)}>
+                  {CATEGORY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </label>
