@@ -45,12 +45,11 @@ Send the source document as JSON with `Authorization: Bearer <INGEST_SECRET>`.
    `FIREBASE_PRIVATE_KEY` in Vercel.
 2. Configure random, secret values for `INGEST_SECRET` and `CRON_SECRET`.
 3. Deploy the Firestore rules and composite index in this repository.
-4. Seed the current sources with `npm run seed:sources` while the Firebase
-   environment variables are available locally.
-5. Call `POST /api/ingest-sources` once with
+4. Call `POST /api/ingest-sources` once with
    `Authorization: Bearer <INGEST_SECRET>`.
-6. Confirm that events and a successful `ingestionRuns` record exist.
-7. Set `INDEXED_SEARCH_ENABLED=true` in Vercel and redeploy.
+   The first run automatically seeds the current source registry.
+5. Confirm that events and a successful `ingestionRuns` record exist.
+6. Set `INDEXED_SEARCH_ENABLED=true` in Vercel and redeploy.
 
 Until the final flag is enabled, search remains in `hybrid-live` mode. This
 keeps the existing site functional while Firestore is being configured and

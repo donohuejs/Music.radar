@@ -1,7 +1,10 @@
 import { upsertEvents, recordIngestionRun } from "../lib/server/eventStore.js";
 import { getAdminDb } from "../lib/server/firebaseAdmin.js";
 import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
-import { loadEnabledSources } from "../lib/server/sourceRegistry.js";
+import {
+  ensureDefaultSources,
+  loadEnabledSources,
+} from "../lib/server/sourceRegistry.js";
 
 function authorized(request) {
   const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "");
@@ -30,6 +33,7 @@ export default async function handler(request, response) {
   const startedAt = new Date().toISOString();
 
   try {
+    const registryBootstrapped = await ensureDefaultSources(db);
     const sources = await loadEnabledSources(db);
     const result = await fetchLocalVenueEvents({ sources });
     const imported = await upsertEvents(db, result.events);
@@ -40,6 +44,7 @@ export default async function handler(request, response) {
       startedAt,
       sourceCount: sources.length,
       imported,
+      registryBootstrapped,
       sourceStatus: result.sourceStatus,
     });
 
@@ -47,6 +52,7 @@ export default async function handler(request, response) {
       ok: true,
       sourceCount: sources.length,
       imported,
+      registryBootstrapped,
       sourceStatus: result.sourceStatus,
     });
   } catch (error) {
