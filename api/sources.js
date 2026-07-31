@@ -3,6 +3,7 @@ import { sourceDocument } from "../lib/server/sourceRegistry.js";
 
 const ALLOWED_PARSERS = new Set([
   "ical",
+  "calendar-page",
   "rss",
   "json-ld",
   "radio-room",

@@ -7,6 +7,9 @@ require a code deployment.
 ## Supported source types
 
 - `ical`: iCalendar/ICS feeds, including timezone-aware event dates.
+- `calendar-page`: venue or organization pages that embed a supported public
+  calendar. Tockify calendars are detected automatically and imported through
+  their ICS feed.
 - `rss`: event RSS feeds that expose an explicit event start field.
 - `json-ld`: pages containing Schema.org Event JSON-LD.
 - `radio-room`, `squarespace`, `peace-center`, `foundry`: existing custom
@@ -66,3 +69,7 @@ calendar does not stop the others from being indexed.
 Prefer official public calendars from cities, parks, breweries, bars,
 festivals, tourism offices, and venues. Add a custom adapter only when a source
 does not expose ICS, event RSS, or JSON-LD.
+
+For a page that embeds its calendar, register the public page with
+`parser: "calendar-page"`. The importer detects the calendar provider and feed
+identifier, so the source does not need a provider-specific scraper or feed URL.
