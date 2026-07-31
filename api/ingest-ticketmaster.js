@@ -1,3 +1,4 @@
+import { recordIngestionRun, upsertEvents } from "../lib/server/eventStore.js";
 import { getAdminDb } from "../lib/server/firebaseAdmin.js";
 import { fetchTicketmasterEvents } from "../lib/server/ticketmaster.js";
 
@@ -44,31 +45,27 @@ export default async function handler(request, response) {
       city,
     });
 
-    const writer = db.bulkWriter();
-    for (const event of events) {
-      const ref = db.collection("events").doc(event.id.replace("ticketmaster:", "tm_"));
-      writer.set(ref, event, { merge: true });
-    }
-    await writer.close();
+    const imported = await upsertEvents(
+      db,
+      events.map((event) => ({ ...event, sourceId: "ticketmaster" })),
+    );
 
-    await db.collection("ingestionRuns").add({
+    await recordIngestionRun(db, {
       source: "ticketmaster",
       status: "success",
-      eventCount: events.length,
+      eventCount: imported,
       center: { lat: Number(lat), lng: Number(lng), radius: Number(radius), city },
       startedAt: startDate.toISOString(),
-      completedAt: new Date().toISOString(),
     });
 
-    return response.status(200).json({ imported: events.length });
+    return response.status(200).json({ imported });
   } catch (error) {
     console.error(error);
-    await db.collection("ingestionRuns").add({
+    await recordIngestionRun(db, {
       source: "ticketmaster",
       status: "failed",
       error: error.message,
       startedAt: startDate.toISOString(),
-      completedAt: new Date().toISOString(),
     });
     return response.status(500).json({ error: error.message });
   }

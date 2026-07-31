@@ -5,6 +5,18 @@
     },
     "api/ingest-ticketmaster.js": {
       "maxDuration": 60
+    },
+    "api/ingest-sources.js": {
+      "maxDuration": 60
+    },
+    "api/sources.js": {
+      "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/ingest-sources",
+      "schedule": "0 9 * * *"
+    }
+  ]
 }
