@@ -74,7 +74,7 @@ export default function App() {
   const [locationText, setLocationText] = useState("");
   const [coordinates, setCoordinates] = useState(null);
   const [radius, setRadius] = useState(25);
-  const [dateOption, setDateOption] = useState("weekend");
+  const [dateOption, setDateOption] = useState("week");
   const [category, setCategory] = useState("music");
   const [events, setEvents] = useState([]);
   const [status, setStatus] = useState("idle");

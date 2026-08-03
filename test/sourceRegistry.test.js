@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ensureDefaultSources } from "../lib/server/sourceRegistry.js";
+import {
+  ensureDefaultSources,
+  loadEnabledSources,
+} from "../lib/server/sourceRegistry.js";
 import { VENUE_SOURCES } from "../lib/server/venueSources.js";
 
 test("adds newly shipped defaults without overwriting existing source documents", async () => {
@@ -43,6 +46,37 @@ test("adds newly shipped defaults without overwriting existing source documents"
   assert.equal(writes.some(({ reference }) => reference.id === existingId), false);
   assert.equal(
     writes.some(({ reference }) => reference.id === "smileys-on-the-roxx"),
+    true,
+  );
+});
+
+test("merges newly shipped defaults with registered sources during ingestion", async () => {
+  const db = {
+    collection() {
+      return {
+        limit() {
+          return this;
+        },
+        async get() {
+          return {
+            docs: [{
+              id: "radio-room",
+              data: () => ({ enabled: true, successfulRuns: 3 }),
+            }],
+          };
+        },
+      };
+    },
+  };
+
+  const sources = await loadEnabledSources(db);
+  assert.equal(sources.length, VENUE_SOURCES.length);
+  assert.equal(
+    sources.find(({ id }) => id === "radio-room").successfulRuns,
+    3,
+  );
+  assert.equal(
+    sources.some(({ id }) => id === "png-downtown-alive"),
     true,
   );
 });
