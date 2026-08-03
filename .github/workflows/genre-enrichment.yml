@@ -1,0 +1,29 @@
+name: Enrich event genres
+
+on:
+  schedule:
+    - cron: "45 10 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Enrich uncategorized artists in bounded batches
+        env:
+          MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
+        run: |
+          test -n "$MUSIC_RADAR_INGEST_SECRET"
+          for batch in 1 2 3 4 5 6; do
+            curl --fail-with-body --silent --show-error \
+              --request POST \
+              --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
+              --header "Content-Type: application/json" \
+              --data '{"limit":4}' \
+              https://music-radar-one.vercel.app/api/enrich-genres
+            sleep 2
+          done
