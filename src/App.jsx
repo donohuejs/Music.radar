@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { getDateRange } from "./lib/dateRange.js";
+import { calendarDays, parseLocalDate, toLocalDateValue } from "./lib/calendar.js";
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100];
 const DATE_OPTIONS = [
@@ -36,6 +37,96 @@ function formatDate(value) {
 function localDateInput(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function displayDate(value) {
+  const date = parseLocalDate(value);
+  return date
+    ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date)
+    : "Choose a date";
+}
+
+function CalendarPicker({ mode, start, end, onStartChange, onEndChange }) {
+  const initialDate = parseLocalDate(start) || new Date();
+  const [visibleMonth, setVisibleMonth] = useState(
+    new Date(initialDate.getFullYear(), initialDate.getMonth(), 1),
+  );
+  const [selectingEnd, setSelectingEnd] = useState(false);
+  const days = calendarDays(visibleMonth);
+  const today = toLocalDateValue(new Date());
+
+  function chooseDay(date) {
+    const value = toLocalDateValue(date);
+    if (mode === "single") {
+      onStartChange(value);
+      return;
+    }
+    if (!selectingEnd || !start || value < start) {
+      onStartChange(value);
+      onEndChange("");
+      setSelectingEnd(true);
+      return;
+    }
+    onEndChange(value);
+    setSelectingEnd(false);
+  }
+
+  function moveMonth(amount) {
+    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
+  }
+
+  function selectToday() {
+    const now = new Date();
+    setVisibleMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+    chooseDay(now);
+  }
+
+  function clear() {
+    onStartChange("");
+    if (onEndChange) onEndChange("");
+    setSelectingEnd(false);
+  }
+
+  return (
+    <div className="calendar-picker">
+      <div className="calendar-fields">
+        <div><span>{mode === "range" ? "Start date" : "Selected date"}</span><strong>{displayDate(start)}</strong></div>
+        {mode === "range" ? <div><span>End date</span><strong>{displayDate(end)}</strong></div> : null}
+      </div>
+      <div className="calendar-header">
+        <button type="button" onClick={() => moveMonth(-1)} aria-label="Previous month">‹</button>
+        <strong>{new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(visibleMonth)}</strong>
+        <button type="button" onClick={() => moveMonth(1)} aria-label="Next month">›</button>
+      </div>
+      <div className="calendar-weekdays" aria-hidden="true">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}
+      </div>
+      <div className="calendar-days">
+        {days.map((date) => {
+          const value = toLocalDateValue(date);
+          const outside = date.getMonth() !== visibleMonth.getMonth();
+          const selected = value === start || value === end;
+          const inRange = mode === "range" && start && end && value > start && value < end;
+          return (
+            <button
+              className={[outside && "is-outside", selected && "is-selected", inRange && "is-in-range", value === today && "is-today"].filter(Boolean).join(" ")}
+              key={value}
+              type="button"
+              onClick={() => chooseDay(date)}
+              aria-pressed={Boolean(selected)}
+            >
+              {date.getDate()}
+            </button>
+          );
+        })}
+      </div>
+      <div className="calendar-actions">
+        <button type="button" onClick={selectToday}>Today</button>
+        <button type="button" onClick={clear}>Clear</button>
+        {mode === "range" ? <span>{selectingEnd ? "Now choose an end date" : start && end ? "Range selected" : "Choose a start date"}</span> : null}
+      </div>
+    </div>
+  );
 }
 
 function EventCard({ event }) {
@@ -282,23 +373,13 @@ export default function App() {
 
             {dateOption === "date" ? (
               <div className="single-date-picker">
-                <label>
-                  Select a date
-                  <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} required />
-                </label>
+                <CalendarPicker mode="single" start={selectedDate} onStartChange={setSelectedDate} />
               </div>
             ) : null}
 
             {dateOption === "custom" ? (
               <div className="custom-date-grid">
-                <label>
-                  Start date
-                  <input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} required />
-                </label>
-                <label>
-                  End date
-                  <input type="date" min={customStart} value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} required />
-                </label>
+                <CalendarPicker mode="range" start={customStart} end={customEnd} onStartChange={setCustomStart} onEndChange={setCustomEnd} />
               </div>
             ) : null}
 
