@@ -1,0 +1,112 @@
+# Music Radar project handoff
+
+Updated: 2026-08-03
+
+## Mission
+
+Make it easy to discover live music near any location, including events that
+large ticketing platforms miss: brewery and bar performances, free municipal
+series, festivals, parks, and neighborhood venues. The product must grow through
+reusable discovery and ingestion systems rather than a worldwide hardcoded venue
+list.
+
+## Current system
+
+```text
+User search
+  -> geocode or browser coordinates
+  -> indexed Firestore events + Ticketmaster
+  -> distance/date/category filtering and deduplication
+  -> immediate results
+  -> asynchronous geographic source-discovery queue
+
+Scheduled workers
+  -> registered source ingestion -> normalized Firestore events
+  -> discovery -> candidate calendars/pages/posters -> validated sources
+  -> poster extraction -> stored OCR text
+  -> MusicBrainz enrichment -> cached artist genres -> updated events
+```
+
+The React/Vite client is deployed by Vercel from GitHub `main`. Vercel API
+functions implement search and protected operational endpoints. Firebase Admin
+stores indexed events, registered sources, discovery state, ingestion records,
+and artist-genre cache records.
+
+## Event model highlights
+
+Important normalized fields include:
+
+- stable `id` and optional `externalId`
+- `name`, `artistName`, `venueName`, and address fields
+- latitude, longitude, and `geoCell`
+- ISO `startTime` and optional `endTime`
+- `category`: `music`, `participatory`, `trivia`, `theater`, `comedy`,
+  `community`, or `other`
+- `genres`, using `Genre not listed` instead of invented metadata
+- source attribution, confidence, and verification timestamps
+
+## Shipped Greenville verification sources
+
+Greenville is the initial coverage test market, not a search-system special
+case. Shipped sources currently include Radio Room, Smiley's on the Roxx,
+Swanson's Warehouse, Peace Center, Foundry at Judson Mill, PNG Downtown Alive,
+and Greenville Heritage Main Street Fridays. The two municipal series use the
+reusable `series-schedule` collector because their lineups were published in
+poster/PDF assets.
+
+## Automation
+
+- Vercel runs `/api/ingest-sources` daily.
+- `.github/workflows/discovery.yml` processes geographic discovery jobs and
+  poster extraction.
+- `.github/workflows/genre-enrichment.yml` processes bounded MusicBrainz genre
+  batches.
+- Both GitHub workflows use `MUSIC_RADAR_INGEST_SECRET`.
+
+## Security and operations
+
+- Firebase Admin credentials, Ticketmaster keys, and ingestion secrets live in
+  Vercel, never in Git.
+- Protected APIs accept only `INGEST_SECRET` or Vercel's `CRON_SECRET`.
+- Firestore client rules allow public reads only for intended public
+  collections; server-side writes use Firebase Admin.
+- Source discovery rejects private/local addresses and bounds geographic cells,
+  organizations, pages, response sizes, and worker batches.
+
+## Known limitations
+
+1. Poster discovery stores OCR text but does not yet generically transform every
+   arbitrary poster layout into events. Structured recurring-series data is the
+   verified fallback.
+2. Many small/local artists are absent from MusicBrainz. Exact-name and
+   high-confidence matching intentionally leaves uncertain artists unclassified.
+3. Discovery can identify supported structured calendars automatically, but
+   novel JavaScript calendar providers still require a reusable adapter.
+4. Search quality must be tested in markets beyond Greenville, especially dense
+   cities and travel destinations.
+5. There is no administrative review interface yet for candidate sources,
+   ambiguous artist matches, degraded sources, or coverage gaps.
+
+## Recommended next priorities
+
+1. Build an admin/review queue for discovered sources and ambiguous genre
+   matches.
+2. Add coverage diagnostics that explain which sources and geographic cells
+   contributed to a search.
+3. Generalize poster normalization using OCR coordinates, recurring weekday
+   validation, and human approval before publication.
+4. Test several contrasting markets: a dense major city, a midsize city, a
+   rural/tourism area, and an international destination.
+5. Add monitoring for ingestion failures, stale sources, enrichment backlog,
+   duplicates, and events with missing coordinates.
+
+## Starting a fresh Codex task
+
+Open this repository as the Codex project and begin with a short prompt such as:
+
+> Continue Music Radar. Read AGENTS.md, README.md, and
+> docs/project-handoff.md first. Inspect the current branch and preserve
+> unrelated changes. Today's goal is: [describe the next gap or feature].
+
+The repository documents are the durable source of context. The old chat is
+useful historical evidence but should not be required for routine continuation.
