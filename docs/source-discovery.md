@@ -1,0 +1,60 @@
+# Music Radar source discovery
+
+Music Radar expands indexed local coverage asynchronously. Search remains fast:
+the search endpoint returns existing indexed events, then queues new or stale
+geographic coverage cells regardless of how many commercial events are already
+stored for the area.
+
+## Discovery flow
+
+1. A searched radius is divided into bounded discovery cells. New cells and
+   cells not completed in the previous seven days are queued. At most 25 cells
+   are considered per search.
+2. The protected discovery worker queries OpenStreetMap for nearby government
+   organizations, breweries, bars, pubs, cultural venues, parks, and other
+   likely event hosts that publish an official website.
+3. Each website is inspected with strict page and response limits. Event links
+   and relevant sitemap entries are considered; unrelated pages are ignored.
+4. Recognized ICS, RSS, JSON-LD, and embedded Tockify calendars become source
+   candidates. Confidence increases with repeated independent sightings.
+5. Before automatic registration, a high-confidence structured candidate is
+   fetched through its real parser and must produce plausible upcoming events.
+   It then enters probation rather than being immediately marked trusted.
+6. Successful scheduled ingestion runs increase source confidence. Three
+   successful runs can promote a source to trusted; three consecutive failures
+   degrade it for review.
+7. PDF or image schedules are retained with `status: needs-extraction` and an
+   asset URL. The GitHub Actions worker runs Poppler or Tesseract only when the
+   asset hash changes, then saves the extracted text on the candidate.
+
+The system stores operational state in:
+
+- `discoveryJobs`: deduplicated location coverage jobs.
+- `sourceCandidates`: scored calendars, event pages, and poster assets.
+- `sources`: approved or high-confidence automatically registered sources.
+
+## GitHub Actions setup
+
+Add one Actions repository secret named `MUSIC_RADAR_INGEST_SECRET`. Its value
+must match the current `INGEST_SECRET` in Vercel. The scheduled workflow calls
+the protected discovery API and processes poster candidates with open-source
+tools on an Ubuntu runner.
+
+The workflow may also be started manually from the repository Actions tab.
+
+## Safety and quality controls
+
+- Discovery is independent of indexed event count, so cities with large
+  commercial inventories still receive municipal and small-venue discovery.
+- Discovery is bounded by radius, cell count, organization count, pages per organization,
+  response size, and worker batch size.
+- Localhost and private-address URLs are rejected.
+- A failed organization does not stop the rest of a location job.
+- Unstructured or poster-only pages are not automatically added to live search.
+- Existing source documents are preserved and remain administratively
+  disableable.
+
+Poster text is intentionally stored before automatic event creation. A later
+normalization stage will combine OCR coordinates, recurring-series metadata,
+and date/weekday validation. This prevents a poor OCR result from publishing
+incorrect events.

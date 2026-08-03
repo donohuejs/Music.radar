@@ -1,0 +1,40 @@
+name: Discover local event sources
+
+on:
+  schedule:
+    - cron: "15 10 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Process queued discovery locations
+        env:
+          MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
+        run: |
+          test -n "$MUSIC_RADAR_INGEST_SECRET"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
+            --header "Content-Type: application/json" \
+            --data '{"action":"run","limit":3}' \
+            https://music-radar-one.vercel.app/api/discover
+
+  poster-extraction:
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install open-source document tools
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr
+      - name: Extract text from newly discovered posters
+        env:
+          MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
+          MUSIC_RADAR_API_BASE: https://music-radar-one.vercel.app
+        run: node scripts/poster-worker.js

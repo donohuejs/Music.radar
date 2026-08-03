@@ -42,6 +42,9 @@ Sources can be registered without a deployment through `POST /api/sources`.
 Send the source document as JSON with `Authorization: Bearer <INGEST_SECRET>`.
 `GET /api/sources` returns the current registry and uses the same authorization.
 
+Location-based candidate discovery and poster extraction are documented in
+`docs/source-discovery.md`.
+
 ## Initial setup
 
 1. Configure `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and

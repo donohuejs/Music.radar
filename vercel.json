@@ -11,6 +11,9 @@
     },
     "api/sources.js": {
       "maxDuration": 30
+    },
+    "api/discover.js": {
+      "maxDuration": 60
     }
   },
   "crons": [

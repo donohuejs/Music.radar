@@ -4,6 +4,7 @@ import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 import {
   ensureDefaultSources,
   loadEnabledSources,
+  updateDiscoveredSourceHealth,
 } from "../lib/server/sourceRegistry.js";
 
 function authorized(request) {
@@ -37,6 +38,7 @@ export default async function handler(request, response) {
     const sources = await loadEnabledSources(db);
     const result = await fetchLocalVenueEvents({ sources });
     const imported = await upsertEvents(db, result.events);
+    await updateDiscoveredSourceHealth(db, sources, result.sourceStatus);
 
     await recordIngestionRun(db, {
       source: "registered-sources",

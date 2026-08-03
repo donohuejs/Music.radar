@@ -8,6 +8,7 @@ import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 import { fetchTicketmasterEvents } from "../lib/server/ticketmaster.js";
 import { EVENT_CATEGORIES } from "../lib/server/eventCategory.js";
 import { searchGeoCells } from "../lib/server/geoCells.js";
+import { queueDiscoveryJobsForArea } from "../lib/server/discoveryStore.js";
 
 function parseNumber(value) {
   const parsed = Number(value);
@@ -182,6 +183,20 @@ export default async function handler(request, response) {
           new Date(b.startTime).getTime(),
       );
 
+    let discoveryCoverage = { queuedCount: 0, coverageCellCount: 0 };
+    if (indexedSearchEnabled) {
+      try {
+        discoveryCoverage = await queueDiscoveryJobsForArea(getAdminDb(), {
+          latitude: lat,
+          longitude: lng,
+          displayName: resolvedLocation.displayName,
+          radiusMiles: radius,
+        });
+      } catch (error) {
+        console.warn("Could not queue source discovery:", error.message);
+      }
+    }
+
     return response.status(200).json({
       events: filtered,
       meta: {
@@ -200,6 +215,9 @@ export default async function handler(request, response) {
         returnedCount: filtered.length,
         firebaseConfigured: Boolean(getAdminDb()),
         ticketmasterConfigured: Boolean(process.env.TICKETMASTER_API_KEY),
+        discoveryQueued: discoveryCoverage.queuedCount > 0,
+        discoveryQueuedCellCount: discoveryCoverage.queuedCount,
+        discoveryCoverageCellCount: discoveryCoverage.coverageCellCount,
         localSources: localVenues.value.sourceStatus,
         sourceHealth: {
           firestore: firestore.health,

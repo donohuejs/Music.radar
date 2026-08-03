@@ -20,5 +20,13 @@ service cloud.firestore {
     match /ingestionRuns/{runId} {
       allow read, write: if false;
     }
+
+    match /discoveryJobs/{jobId} {
+      allow read, write: if false;
+    }
+
+    match /sourceCandidates/{candidateId} {
+      allow read, write: if false;
+    }
   }
 }
