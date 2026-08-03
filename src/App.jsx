@@ -7,6 +7,7 @@ const DATE_OPTIONS = [
   { label: "Tomorrow", value: "tomorrow" },
   { label: "This weekend", value: "weekend" },
   { label: "Next 7 days", value: "week" },
+  { label: "Choose a date", value: "date" },
   { label: "Custom dates", value: "custom" },
 ];
 const CATEGORY_OPTIONS = [
@@ -85,6 +86,7 @@ export default function App() {
   const [coordinates, setCoordinates] = useState(null);
   const [radius, setRadius] = useState(25);
   const [dateOption, setDateOption] = useState("week");
+  const [selectedDate, setSelectedDate] = useState(localDateInput());
   const [customStart, setCustomStart] = useState(localDateInput());
   const [customEnd, setCustomEnd] = useState(
     localDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
@@ -97,10 +99,17 @@ export default function App() {
   const [locationStatus, setLocationStatus] = useState("idle");
   const [locationMessage, setLocationMessage] = useState("");
 
-  const genreOptions = useMemo(
-    () => [...new Set(events.flatMap((event) => event.genres || []))].sort(),
-    [events],
-  );
+  const genreOptions = useMemo(() => {
+    const counts = new Map();
+    events.forEach((event) => {
+      (event.genres || []).forEach((eventGenre) => {
+        counts.set(eventGenre, (counts.get(eventGenre) || 0) + 1);
+      });
+    });
+    return [...counts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [events]);
   const visibleEvents = useMemo(
     () => genre === "all"
       ? events
@@ -150,7 +159,7 @@ export default function App() {
 
     let dates;
     try {
-      dates = getDateRange(dateOption, customStart, customEnd);
+      dates = getDateRange(dateOption, customStart, customEnd, selectedDate);
     } catch (error) {
       setMessage(error.message);
       setStatus("error");
@@ -265,11 +274,20 @@ export default function App() {
                 <select value={genre} onChange={(event) => setGenre(event.target.value)} disabled={!genreOptions.length}>
                   <option value="all">All genres</option>
                   {genreOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option.name} value={option.name}>{option.name} ({option.count})</option>
                   ))}
                 </select>
               </label>
             </div>
+
+            {dateOption === "date" ? (
+              <div className="single-date-picker">
+                <label>
+                  Select a date
+                  <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} required />
+                </label>
+              </div>
+            ) : null}
 
             {dateOption === "custom" ? (
               <div className="custom-date-grid">

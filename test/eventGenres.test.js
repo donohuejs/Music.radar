@@ -13,3 +13,14 @@ test("normalizes supplied and title-based genres without duplicates", () => {
     ["Classical"],
   );
 });
+
+test("keeps every music event available through the genre filter", () => {
+  assert.deepEqual(
+    inferEventGenres({ name: "An Artist Without Metadata", category: "music" }),
+    ["Genre not listed"],
+  );
+  assert.deepEqual(
+    inferEventGenres({ name: "Trivia Night", category: "trivia" }),
+    [],
+  );
+});
