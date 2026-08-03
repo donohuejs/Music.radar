@@ -45,6 +45,40 @@ function displayDate(value) {
     : "Choose a date";
 }
 
+function RadarLogo() {
+  const notes = [
+    { x: 14, y: 18, delay: "0s" },
+    { x: 31, y: 14, delay: ".7s" },
+    { x: 34, y: 32, delay: "1.4s" },
+  ];
+
+  return (
+    <svg className="brand__radar" viewBox="0 0 48 48" aria-hidden="true">
+      <defs>
+        <linearGradient id="radar-sweep" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#b1ff47" stopOpacity=".55" />
+          <stop offset="1" stopColor="#b1ff47" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <circle className="radar-face" cx="24" cy="24" r="21" />
+      <circle className="radar-ring" cx="24" cy="24" r="14" />
+      <circle className="radar-ring" cx="24" cy="24" r="7" />
+      <path className="radar-axis" d="M3 24h42M24 3v42" />
+      <g className="radar-sweep">
+        <path d="M24 24V3a21 21 0 0 1 17.8 9.9Z" fill="url(#radar-sweep)" />
+        <path d="M24 24V3" />
+      </g>
+      {notes.map(({ x, y, delay }) => (
+        <g className="radar-note" key={`${x}-${y}`} style={{ animationDelay: delay }}>
+          <circle cx={x} cy={y} r="2.1" />
+          <path d={`M${x + 2} ${y}v-7l5-1.2v2.3l-5 1.2`} />
+        </g>
+      ))}
+      <circle className="radar-center" cx="24" cy="24" r="1.7" />
+    </svg>
+  );
+}
+
 function CalendarPicker({ mode, start, end, onStartChange, onEndChange }) {
   const initialDate = parseLocalDate(start) || new Date();
   const [visibleMonth, setVisibleMonth] = useState(
@@ -308,7 +342,7 @@ export default function App() {
       <section className="hero">
         <div className="hero__content">
           <div className="brand">
-            <span className="brand__radar" aria-hidden="true">◉</span>
+            <RadarLogo />
             MUSIC RADAR
           </div>
           <h1>Find the show<br />you didn’t know about.</h1>
