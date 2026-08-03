@@ -1,19 +1,9 @@
-export function getDateRange(option, customStart, customEnd, selectedDate) {
+export function getDateRange(option, customStart, customEnd) {
   const now = new Date();
   const start = new Date(now);
   const end = new Date(now);
 
-  if (option === "date") {
-    const selectedStart = new Date(`${selectedDate}T00:00:00`);
-    const selectedEnd = new Date(`${selectedDate}T23:59:59.999`);
-    if (!selectedDate || Number.isNaN(selectedStart.getTime())) {
-      throw new Error("Choose a valid date from the calendar.");
-    }
-    return {
-      startDate: selectedStart.toISOString(),
-      endDate: selectedEnd.toISOString(),
-    };
-  } else if (option === "custom") {
+  if (option === "custom") {
     const customStartDate = new Date(`${customStart}T00:00:00`);
     const customEndDate = new Date(`${customEnd}T23:59:59.999`);
     if (

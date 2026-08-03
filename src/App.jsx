@@ -8,7 +8,6 @@ const DATE_OPTIONS = [
   { label: "Tomorrow", value: "tomorrow" },
   { label: "This weekend", value: "weekend" },
   { label: "Next 7 days", value: "week" },
-  { label: "Choose a date", value: "date" },
   { label: "Custom dates", value: "custom" },
 ];
 const CATEGORY_OPTIONS = [
@@ -61,9 +60,17 @@ function CalendarPicker({ mode, start, end, onStartChange, onEndChange }) {
       onStartChange(value);
       return;
     }
-    if (!selectingEnd || !start || value < start) {
+    if (!selectingEnd || !start) {
       onStartChange(value);
-      onEndChange("");
+      // A single click is already a valid one-day range. A second click can
+      // expand it without requiring a separate single-date mode.
+      onEndChange(value);
+      setSelectingEnd(true);
+      return;
+    }
+    if (value < start) {
+      onStartChange(value);
+      onEndChange(value);
       setSelectingEnd(true);
       return;
     }
@@ -123,7 +130,7 @@ function CalendarPicker({ mode, start, end, onStartChange, onEndChange }) {
       <div className="calendar-actions">
         <button type="button" onClick={selectToday}>Today</button>
         <button type="button" onClick={clear}>Clear</button>
-        {mode === "range" ? <span>{selectingEnd ? "Now choose an end date" : start && end ? "Range selected" : "Choose a start date"}</span> : null}
+        {mode === "range" ? <span>{selectingEnd ? "One day selected; choose another to expand" : start && end ? "Range selected" : "Choose a start date"}</span> : null}
       </div>
     </div>
   );
@@ -177,7 +184,6 @@ export default function App() {
   const [coordinates, setCoordinates] = useState(null);
   const [radius, setRadius] = useState(25);
   const [dateOption, setDateOption] = useState("week");
-  const [selectedDate, setSelectedDate] = useState(localDateInput());
   const [customStart, setCustomStart] = useState(localDateInput());
   const [customEnd, setCustomEnd] = useState(
     localDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
@@ -250,7 +256,7 @@ export default function App() {
 
     let dates;
     try {
-      dates = getDateRange(dateOption, customStart, customEnd, selectedDate);
+      dates = getDateRange(dateOption, customStart, customEnd);
     } catch (error) {
       setMessage(error.message);
       setStatus("error");
@@ -360,22 +366,7 @@ export default function App() {
                 </select>
               </label>
 
-              <label>
-                Genre
-                <select value={genre} onChange={(event) => setGenre(event.target.value)} disabled={!genreOptions.length}>
-                  <option value="all">All genres</option>
-                  {genreOptions.map((option) => (
-                    <option key={option.name} value={option.name}>{option.name} ({option.count})</option>
-                  ))}
-                </select>
-              </label>
             </div>
-
-            {dateOption === "date" ? (
-              <div className="single-date-picker">
-                <CalendarPicker mode="single" start={selectedDate} onStartChange={setSelectedDate} />
-              </div>
-            ) : null}
 
             {dateOption === "custom" ? (
               <div className="custom-date-grid">
@@ -396,7 +387,31 @@ export default function App() {
             <p className="results__kicker">RADAR RESULTS</p>
             <h2>{resultSummary}</h2>
           </div>
-          <p className="coverage-note">Sources are shown on every listing so gaps stay visible.</p>
+          {status === "success" && events.length ? (
+            <div className="genre-filters" aria-label="Filter results by genre">
+              <button
+                className={genre === "all" ? "is-active" : ""}
+                type="button"
+                onClick={() => setGenre("all")}
+                aria-pressed={genre === "all"}
+              >
+                All ({events.length})
+              </button>
+              {genreOptions.map((option) => (
+                <button
+                  className={genre === option.name ? "is-active" : ""}
+                  key={option.name}
+                  type="button"
+                  onClick={() => setGenre(option.name)}
+                  aria-pressed={genre === option.name}
+                >
+                  {option.name} ({option.count})
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="coverage-note">Sources are shown on every listing so gaps stay visible.</p>
+          )}
         </div>
 
         {status === "success" && visibleEvents.length === 0 ? (

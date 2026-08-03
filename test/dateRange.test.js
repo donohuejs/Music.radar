@@ -21,13 +21,3 @@ test("rejects an inverted custom date range", () => {
     /valid custom date range/i,
   );
 });
-
-test("builds a full-day range from a clicked calendar date", () => {
-  const range = getDateRange("date", null, null, "2026-08-07");
-  const start = new Date(range.startDate);
-  const end = new Date(range.endDate);
-  assert.equal(start.getDate(), 7);
-  assert.equal(start.getHours(), 0);
-  assert.equal(end.getDate(), 7);
-  assert.equal(end.getHours(), 23);
-});
