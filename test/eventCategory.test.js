@@ -17,3 +17,14 @@ test("separates participatory listings from a source's broad music category", ()
     "music",
   );
 });
+
+test("separates trivia from a source's broad music category", () => {
+  assert.equal(
+    inferEventCategory({ name: "Trivia Club", category: "music" }),
+    "trivia",
+  );
+  assert.equal(
+    inferEventCategory({ name: "Wednesday Pub Quiz", category: "music" }),
+    "trivia",
+  );
+});

@@ -1,9 +1,25 @@
-export function getDateRange(option) {
+export function getDateRange(option, customStart, customEnd) {
   const now = new Date();
   const start = new Date(now);
   const end = new Date(now);
 
-  if (option === "tonight") {
+  if (option === "custom") {
+    const customStartDate = new Date(`${customStart}T00:00:00`);
+    const customEndDate = new Date(`${customEnd}T23:59:59.999`);
+    if (
+      !customStart ||
+      !customEnd ||
+      Number.isNaN(customStartDate.getTime()) ||
+      Number.isNaN(customEndDate.getTime()) ||
+      customEndDate < customStartDate
+    ) {
+      throw new Error("Choose a valid custom date range.");
+    }
+    return {
+      startDate: customStartDate.toISOString(),
+      endDate: customEndDate.toISOString(),
+    };
+  } else if (option === "tonight") {
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
   } else if (option === "tomorrow") {

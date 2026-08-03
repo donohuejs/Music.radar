@@ -7,10 +7,12 @@ const DATE_OPTIONS = [
   { label: "Tomorrow", value: "tomorrow" },
   { label: "This weekend", value: "weekend" },
   { label: "Next 7 days", value: "week" },
+  { label: "Custom dates", value: "custom" },
 ];
 const CATEGORY_OPTIONS = [
   { label: "Live music", value: "music" },
   { label: "Open mic, jams & karaoke", value: "participatory" },
+  { label: "Trivia", value: "trivia" },
   { label: "Theater", value: "theater" },
   { label: "Comedy", value: "comedy" },
   { label: "All events", value: "all" },
@@ -28,6 +30,11 @@ function formatDate(value) {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
+}
+
+function localDateInput(date = new Date()) {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
 function EventCard({ event }) {
@@ -58,6 +65,9 @@ function EventCard({ event }) {
           <span>{event.sourceName || "Event source"}</span>
           {event.category ? <span>{event.category.replace("_", " ")}</span> : null}
           {event.confidence ? <span>{Math.round(event.confidence * 100)}% confidence</span> : null}
+          {(event.genres || []).map((genre) => (
+            <span className="genre-tag" key={genre}>{genre}</span>
+          ))}
         </div>
 
         {event.ticketUrl ? (
@@ -75,38 +85,58 @@ export default function App() {
   const [coordinates, setCoordinates] = useState(null);
   const [radius, setRadius] = useState(25);
   const [dateOption, setDateOption] = useState("week");
+  const [customStart, setCustomStart] = useState(localDateInput());
+  const [customEnd, setCustomEnd] = useState(
+    localDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
+  );
   const [category, setCategory] = useState("music");
+  const [genre, setGenre] = useState("all");
   const [events, setEvents] = useState([]);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
+  const [locationStatus, setLocationStatus] = useState("idle");
+  const [locationMessage, setLocationMessage] = useState("");
+
+  const genreOptions = useMemo(
+    () => [...new Set(events.flatMap((event) => event.genres || []))].sort(),
+    [events],
+  );
+  const visibleEvents = useMemo(
+    () => genre === "all"
+      ? events
+      : events.filter((event) => (event.genres || []).includes(genre)),
+    [events, genre],
+  );
 
   const resultSummary = useMemo(() => {
     if (status === "loading") return "Scanning nearby sources…";
     if (status === "error") return message;
     if (status === "success") {
-      return `${events.length} event${events.length === 1 ? "" : "s"} found`;
+      const filtered = visibleEvents.length !== events.length;
+      return `${visibleEvents.length} event${visibleEvents.length === 1 ? "" : "s"} found${filtered ? ` (${events.length} before genre filter)` : ""}`;
     }
     return "Search nationwide listings, enhanced by local venue coverage where available.";
-  }, [events.length, message, status]);
+  }, [events.length, message, status, visibleEvents.length]);
 
   function useCurrentLocation() {
     if (!navigator.geolocation) {
-      setMessage("This browser does not support location access.");
-      setStatus("error");
+      setLocationMessage("This browser does not support location access.");
+      setLocationStatus("error");
       return;
     }
 
-    setStatus("loading");
+    setLocationStatus("loading");
+    setLocationMessage("");
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         setCoordinates({ latitude: coords.latitude, longitude: coords.longitude });
         setLocationText("Current location");
-        setMessage("");
-        setStatus("idle");
+        setLocationMessage("Location ready. Press Scan to search nearby.");
+        setLocationStatus("success");
       },
       () => {
-        setMessage("Location access was denied. You can still type a city.");
-        setStatus("error");
+        setLocationMessage("Location access was denied. You can still type a city.");
+        setLocationStatus("error");
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
@@ -116,8 +146,16 @@ export default function App() {
     event.preventDefault();
     setStatus("loading");
     setMessage("");
+    setGenre("all");
 
-    const dates = getDateRange(dateOption);
+    let dates;
+    try {
+      dates = getDateRange(dateOption, customStart, customEnd);
+    } catch (error) {
+      setMessage(error.message);
+      setStatus("error");
+      return;
+    }
     const params = new URLSearchParams({
       radius: String(radius),
       startDate: dates.startDate,
@@ -181,14 +219,17 @@ export default function App() {
                   onChange={(event) => {
                     setLocationText(event.target.value);
                     setCoordinates(null);
+                    setLocationMessage("");
+                    setLocationStatus("idle");
                   }}
                   placeholder="Enter a city, state, or ZIP"
                   required={!coordinates}
                 />
-                <button className="button button--secondary" type="button" onClick={useCurrentLocation}>
-                  Use current location
+                <button className="button button--secondary" type="button" onClick={useCurrentLocation} disabled={locationStatus === "loading"}>
+                  {locationStatus === "loading" ? "Locating…" : "Use current location"}
                 </button>
               </div>
+              {locationMessage ? <span className={`field-message field-message--${locationStatus}`}>{locationMessage}</span> : null}
             </label>
 
             <div className="control-grid">
@@ -218,7 +259,30 @@ export default function App() {
                   ))}
                 </select>
               </label>
+
+              <label>
+                Genre
+                <select value={genre} onChange={(event) => setGenre(event.target.value)} disabled={!genreOptions.length}>
+                  <option value="all">All genres</option>
+                  {genreOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
             </div>
+
+            {dateOption === "custom" ? (
+              <div className="custom-date-grid">
+                <label>
+                  Start date
+                  <input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} required />
+                </label>
+                <label>
+                  End date
+                  <input type="date" min={customStart} value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} required />
+                </label>
+              </div>
+            ) : null}
 
             <button className="button button--primary" type="submit" disabled={status === "loading"}>
               {status === "loading" ? "Scanning…" : "Scan for live music"}
@@ -236,15 +300,15 @@ export default function App() {
           <p className="coverage-note">Sources are shown on every listing so gaps stay visible.</p>
         </div>
 
-        {status === "success" && events.length === 0 ? (
+        {status === "success" && visibleEvents.length === 0 ? (
           <div className="empty-state">
-            <h2>No events found yet.</h2>
-            <p>Try a larger radius or broader date range. This result may also indicate a coverage gap.</p>
+            <h2>{events.length ? "No events match that genre." : "No events found yet."}</h2>
+            <p>{events.length ? "Try another genre or choose All genres." : "Try a larger radius or broader date range. This result may also indicate a coverage gap."}</p>
           </div>
         ) : null}
 
         <div className="event-grid">
-          {events.map((event) => <EventCard key={event.id} event={event} />)}
+          {visibleEvents.map((event) => <EventCard key={event.id} event={event} />)}
         </div>
       </section>
     </main>
