@@ -10,6 +10,7 @@ const ALLOWED_PARSERS = new Set([
   "squarespace",
   "peace-center",
   "foundry",
+  "series-schedule",
 ]);
 
 function authorized(request) {

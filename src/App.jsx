@@ -10,6 +10,7 @@ const DATE_OPTIONS = [
 ];
 const CATEGORY_OPTIONS = [
   { label: "Live music", value: "music" },
+  { label: "Open mic, jams & karaoke", value: "participatory" },
   { label: "Theater", value: "theater" },
   { label: "Comedy", value: "comedy" },
   { label: "All events", value: "all" },
@@ -70,7 +71,7 @@ function EventCard({ event }) {
 }
 
 export default function App() {
-  const [locationText, setLocationText] = useState("Greenville, SC");
+  const [locationText, setLocationText] = useState("");
   const [coordinates, setCoordinates] = useState(null);
   const [radius, setRadius] = useState(25);
   const [dateOption, setDateOption] = useState("weekend");
@@ -181,11 +182,11 @@ export default function App() {
                     setLocationText(event.target.value);
                     setCoordinates(null);
                   }}
-                  placeholder="City, state or ZIP"
+                  placeholder="Enter a city, state, or ZIP"
                   required={!coordinates}
                 />
                 <button className="button button--secondary" type="button" onClick={useCurrentLocation}>
-                  Use my location
+                  Use current location
                 </button>
               </div>
             </label>
