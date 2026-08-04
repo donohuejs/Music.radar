@@ -4,6 +4,25 @@ on:
   schedule:
     - cron: "15 10 * * *"
   workflow_dispatch:
+    inputs:
+      latitude:
+        description: "Optional latitude to queue before processing"
+        required: false
+        type: string
+      longitude:
+        description: "Optional longitude to queue before processing"
+        required: false
+        type: string
+      radiusMiles:
+        description: "Discovery radius for the optional location"
+        required: false
+        default: "25"
+        type: string
+      force:
+        description: "Refresh coverage even when cells are still fresh"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -13,6 +32,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Queue requested discovery location
+        if: ${{ inputs.latitude != '' && inputs.longitude != '' }}
+        env:
+          MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
+          DISCOVERY_LATITUDE: ${{ inputs.latitude }}
+          DISCOVERY_LONGITUDE: ${{ inputs.longitude }}
+          DISCOVERY_RADIUS: ${{ inputs.radiusMiles }}
+          DISCOVERY_FORCE: ${{ inputs.force }}
+        run: |
+          test -n "$MUSIC_RADAR_INGEST_SECRET"
+          payload="$(jq -n \
+            --argjson latitude "$DISCOVERY_LATITUDE" \
+            --argjson longitude "$DISCOVERY_LONGITUDE" \
+            --argjson radiusMiles "$DISCOVERY_RADIUS" \
+            --argjson force "$DISCOVERY_FORCE" \
+            '{action:"queue", latitude:$latitude, longitude:$longitude, radiusMiles:$radiusMiles, force:$force}')"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
+            --header "Content-Type: application/json" \
+            --data "$payload" \
+            https://music-radar-one.vercel.app/api/discover
       - name: Process queued discovery locations
         env:
           MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}

@@ -50,6 +50,9 @@ the protected discovery API and processes poster candidates with open-source
 tools on an Ubuntu runner.
 
 The workflow may also be started manually from the repository Actions tab.
+Optional latitude, longitude, radius, and force inputs queue a reusable
+geographic refresh before the bounded worker calls begin; no city is embedded
+in the workflow configuration.
 
 ## Safety and quality controls
 

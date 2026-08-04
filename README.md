@@ -96,6 +96,11 @@ Invoke-RestMethod `
 Both operations also run on schedules. Manual calls are useful immediately
 after deploying normalization changes or when diagnosing data gaps.
 
+The `Discover local event sources` GitHub workflow can also be started manually
+with optional latitude, longitude, radius, and force inputs. This queues and
+processes geographic coverage using the repository secret without exposing it
+to the operator shell.
+
 ## Documentation
 
 - [Project handoff](docs/project-handoff.md)
