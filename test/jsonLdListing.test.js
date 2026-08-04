@@ -29,9 +29,11 @@ test("collects JSON-LD events from linked detail pages", async (context) => {
     name: "Example Hall",
     url: "https://venue.example/shows",
     parser: "json-ld-listing",
+    category: "music",
     latitude: 41.9,
     longitude: -87.65,
   });
   assert.deepEqual(events.map((event) => event.name).sort(), ["First Artist", "Second Artist"]);
   assert.equal(events[0].venueName, "Example Hall");
+  assert.ok(events.every((event) => event.category === "music"));
 });
