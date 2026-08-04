@@ -1,6 +1,6 @@
 # Music Radar project handoff
 
-Updated: 2026-08-03
+Updated: 2026-08-04
 
 ## Mission
 
@@ -80,8 +80,10 @@ poster/PDF assets.
    verified fallback.
 2. Many small/local artists are absent from MusicBrainz. Exact-name and
    high-confidence matching intentionally leaves uncertain artists unclassified.
-3. Discovery can identify supported structured calendars automatically, but
-   novel JavaScript calendar providers still require a reusable adapter.
+3. Discovery now recognizes linked JSON-LD event listings as durable sources,
+   but novel JavaScript calendars and HTML-only event detail pages still require
+   a reusable adapter. They remain candidates rather than publishing guessed
+   dates or time zones.
 4. Search quality must be tested in markets beyond Greenville, especially dense
    cities and travel destinations.
 5. There is no administrative review interface yet for candidate sources,

@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   detectPageSource,
+  eventDetailLinks,
   overpassQuery,
   parseOverpassCandidates,
 } from "../lib/server/sourceDiscovery.js";
@@ -11,6 +13,9 @@ test("builds a bounded Overpass query for likely music organizations", () => {
   const query = overpassQuery({ latitude: 34.85, longitude: -82.4, radiusMiles: 25 });
   assert.match(query, /around:40234,34\.85,-82\.4/);
   assert.match(query, /craft"="brewery/);
+  assert.match(query, /contact:website/);
+  assert.match(query, /music_venue/);
+  assert.match(query, /events_venue/);
   assert.match(query, /boundary"="administrative/);
 });
 
@@ -73,5 +78,46 @@ test("detects embedded calendars, JSON-LD events, feeds, and posters", () => {
       "https://city.example/events",
     ).kind,
     "poster",
+  );
+});
+
+test("detects a reusable linked-event listing without treating it as a poster", () => {
+  const html = readFileSync(
+    new URL("./fixtures/garcias-listing.html", import.meta.url),
+    "utf8",
+  );
+  const detection = detectPageSource(html, "https://venue.example/shows");
+  assert.equal(detection.kind, "calendar");
+  assert.equal(detection.parser, "json-ld-listing");
+  assert.equal(detection.linkedEventCount, 3);
+  assert.equal(eventDetailLinks(html, "https://venue.example/shows").length, 3);
+});
+
+test("recognizes Metro-style WordPress event detail links", () => {
+  const html = readFileSync(
+    new URL("./fixtures/metro-listing.html", import.meta.url),
+    "utf8",
+  );
+  const detection = detectPageSource(html, "https://metro.example/events/");
+  assert.equal(detection.parser, "json-ld-listing");
+  assert.equal(detection.linkedEventCount, 3);
+});
+
+test("does not classify a normal shows link as a poster asset", () => {
+  assert.equal(
+    detectPageSource('<a href="/shows">Music lineup and shows</a>', "https://venue.example/"),
+    null,
+  );
+});
+
+test("does not mistake a detail page with related shows for a listing", () => {
+  const html = `
+    <a href="/garcias-events/related-one">One</a>
+    <a href="/garcias-events/related-two">Two</a>
+    <a href="/garcias-events/related-three">Three</a>
+  `;
+  assert.equal(
+    detectPageSource(html, "https://venue.example/garcias-events/headliner"),
+    null,
   );
 });

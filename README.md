@@ -15,8 +15,8 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
 - Result-driven genre filters with honest unknown-genre handling.
 - Ticketmaster and registered local-source ingestion.
 - Geographic discovery of municipal, brewery, bar, festival, and venue sources.
-- ICS, RSS, JSON-LD, embedded Tockify, custom venue, and recurring-series
-  collectors.
+- ICS, RSS, JSON-LD, linked-event listing, embedded Tockify, custom venue, and
+  recurring-series collectors.
 - PDF/image poster detection and OCR staging.
 - Cached, conservative MusicBrainz genre enrichment.
 

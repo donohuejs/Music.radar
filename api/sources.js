@@ -6,6 +6,7 @@ const ALLOWED_PARSERS = new Set([
   "calendar-page",
   "rss",
   "json-ld",
+  "json-ld-listing",
   "radio-room",
   "squarespace",
   "peace-center",

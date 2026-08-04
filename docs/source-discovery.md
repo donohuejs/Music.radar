@@ -11,12 +11,17 @@ stored for the area.
    cells not completed in the previous seven days are queued. At most 25 cells
    are considered per search.
 2. The protected discovery worker queries OpenStreetMap for nearby government
-   organizations, breweries, bars, pubs, cultural venues, parks, and other
-   likely event hosts that publish an official website.
-3. Each website is inspected with strict page and response limits. Event links
-   and relevant sitemap entries are considered; unrelated pages are ignored.
-4. Recognized ICS, RSS, JSON-LD, and embedded Tockify calendars become source
-   candidates. Confidence increases with repeated independent sightings.
+   organizations, breweries, bars, pubs, music and concert venues, cultural
+   venues, parks, and other likely event hosts that publish an official
+   `website` or `contact:website`.
+3. Each website is inspected with strict page and response limits. Calendar and
+   show-listing URLs are prioritized ahead of individual event URLs, and up to
+   24 relevant pages are inspected per organization.
+4. Recognized ICS, RSS, JSON-LD, linked JSON-LD event listings, and embedded
+   Tockify calendars become source candidates. A linked listing is registered
+   as one durable venue source and follows a bounded set of current detail pages
+   during each ingestion run; individual event pages are not registered when a
+   covering listing is available. Confidence increases with repeated sightings.
 5. Before automatic registration, a high-confidence structured candidate is
    fetched through its real parser and must produce plausible upcoming events.
    It then enters probation rather than being immediately marked trusted.
@@ -50,6 +55,8 @@ The workflow may also be started manually from the repository Actions tab.
   response size, and worker batch size.
 - Localhost and private-address URLs are rejected.
 - A failed organization does not stop the rest of a location job.
+- Poster detection requires an actual PDF or image asset; an ordinary page named
+  `shows`, `lineup`, or `schedule` is not sent to OCR.
 - Unstructured or poster-only pages are not automatically added to live search.
 - Existing source documents are preserved and remain administratively
   disableable.
