@@ -136,6 +136,7 @@ async function runJobs(db, limit, deadline) {
         organizationOffset: Number(job.organizationOffset || 0),
         maxOrganizations: 2,
         deadline,
+        organizations: job.organizations,
       });
       const savedCandidates = await saveSourceCandidates(db, batch.candidates, job);
       const registeredSources = await registerAutomaticSources(db, savedCandidates);
@@ -147,8 +148,10 @@ async function runJobs(db, limit, deadline) {
         completedAt: batch.complete ? new Date().toISOString() : null,
         organizationOffset: batch.nextOffset,
         organizationCount: batch.organizationCount,
+        organizations: batch.complete ? [] : batch.organizations,
         candidateCount,
         registeredSourceCount,
+        priority: batch.complete ? 0 : Number(job.priority || 0),
         error: null,
       });
       results.push({

@@ -40,4 +40,5 @@ test("discovery batches preserve an organization cursor", async (context) => {
   assert.equal(batch.nextOffset, 2);
   assert.equal(batch.organizationCount, 3);
   assert.equal(batch.complete, false);
+  assert.equal(batch.organizations.length, 3);
 });

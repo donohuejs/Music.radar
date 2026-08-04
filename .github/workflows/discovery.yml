@@ -23,6 +23,19 @@ on:
         required: false
         default: false
         type: boolean
+      sourceName:
+        description: "Optional verified source name to register"
+        required: false
+        type: string
+      sourceUrl:
+        description: "Optional verified source URL to register"
+        required: false
+        type: string
+      sourceParser:
+        description: "Reusable parser for the optional source"
+        required: false
+        default: "json-ld-listing"
+        type: string
 
 permissions:
   contents: read
@@ -32,6 +45,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Register requested verified source
+        if: ${{ inputs.sourceName != '' && inputs.sourceUrl != '' && inputs.latitude != '' && inputs.longitude != '' }}
+        env:
+          MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
+          SOURCE_NAME: ${{ inputs.sourceName }}
+          SOURCE_URL: ${{ inputs.sourceUrl }}
+          SOURCE_PARSER: ${{ inputs.sourceParser }}
+          SOURCE_LATITUDE: ${{ inputs.latitude }}
+          SOURCE_LONGITUDE: ${{ inputs.longitude }}
+        run: |
+          payload="$(jq -n \
+            --arg name "$SOURCE_NAME" \
+            --arg url "$SOURCE_URL" \
+            --arg parser "$SOURCE_PARSER" \
+            --argjson latitude "$SOURCE_LATITUDE" \
+            --argjson longitude "$SOURCE_LONGITUDE" \
+            '{name:$name, url:$url, parser:$parser, latitude:$latitude, longitude:$longitude, enabled:true}')"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
+            --header "Content-Type: application/json" \
+            --data "$payload" \
+            https://music-radar-one.vercel.app/api/sources
       - name: Queue requested discovery location
         if: ${{ inputs.latitude != '' && inputs.longitude != '' }}
         env:
@@ -60,14 +96,24 @@ jobs:
         run: |
           test -n "$MUSIC_RADAR_INGEST_SECRET"
           for attempt in {1..8}; do
-            curl --fail-with-body --silent --show-error \
+            response="$(curl --fail-with-body --silent --show-error \
               --max-time 58 \
               --request POST \
               --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
               --header "Content-Type: application/json" \
               --data '{"action":"run","limit":1}' \
-              https://music-radar-one.vercel.app/api/discover
+              https://music-radar-one.vercel.app/api/discover)"
+            echo "$response"
+            jq -e '(.results // []) | all(.ok == true)' <<< "$response" >/dev/null
           done
+      - name: Ingest registered sources
+        env:
+          MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
+            https://music-radar-one.vercel.app/api/ingest-sources
 
   poster-extraction:
     needs: discover
