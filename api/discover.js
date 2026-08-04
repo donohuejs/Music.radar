@@ -165,12 +165,24 @@ async function runJobs(db, limit, deadline) {
         registeredSourceCount,
       });
     } catch (error) {
+      const attempts = Number(job.attempts || 0) + 1;
+      const terminal = attempts >= 3;
       await updateDiscoveryJob(db, job.id, {
-        status: "failed",
-        completedAt: new Date().toISOString(),
+        status: terminal ? "failed" : "pending",
+        completedAt: terminal ? new Date().toISOString() : null,
+        retryAfter: terminal
+          ? null
+          : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+        priority: 0,
         error: error.message,
       });
-      results.push({ id: job.id, ok: false, error: error.message });
+      results.push({
+        id: job.id,
+        ok: !terminal,
+        deferred: !terminal,
+        attempts,
+        error: error.message,
+      });
     }
   }
   return results;
