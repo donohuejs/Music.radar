@@ -36,6 +36,11 @@ on:
         required: false
         default: "json-ld-listing"
         type: string
+      sourceCategory:
+        description: "Default category for the optional verified source"
+        required: false
+        default: "music"
+        type: string
 
 permissions:
   contents: read
@@ -52,6 +57,7 @@ jobs:
           SOURCE_NAME: ${{ inputs.sourceName }}
           SOURCE_URL: ${{ inputs.sourceUrl }}
           SOURCE_PARSER: ${{ inputs.sourceParser }}
+          SOURCE_CATEGORY: ${{ inputs.sourceCategory }}
           SOURCE_LATITUDE: ${{ inputs.latitude }}
           SOURCE_LONGITUDE: ${{ inputs.longitude }}
         run: |
@@ -59,9 +65,10 @@ jobs:
             --arg name "$SOURCE_NAME" \
             --arg url "$SOURCE_URL" \
             --arg parser "$SOURCE_PARSER" \
+            --arg category "$SOURCE_CATEGORY" \
             --argjson latitude "$SOURCE_LATITUDE" \
             --argjson longitude "$SOURCE_LONGITUDE" \
-            '{name:$name, url:$url, parser:$parser, latitude:$latitude, longitude:$longitude, enabled:true}')"
+            '{name:$name, url:$url, parser:$parser, category:$category, latitude:$latitude, longitude:$longitude, enabled:true}')"
           curl --fail-with-body --silent --show-error \
             --request POST \
             --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \

@@ -98,9 +98,10 @@ after deploying normalization changes or when diagnosing data gaps.
 
 The `Discover local event sources` GitHub workflow can also be started manually
 with optional latitude, longitude, radius, and force inputs. A verified source
-name, URL, and reusable parser may be supplied as an operational fallback. The
-workflow queues discovery, processes bounded batches, and ingests registered
-sources using the repository secret without exposing it to the operator shell.
+name, URL, reusable parser, and default category may be supplied as an
+operational fallback. The workflow queues discovery, processes bounded batches,
+and ingests registered sources using the repository secret without exposing it
+to the operator shell.
 
 ## Documentation
 

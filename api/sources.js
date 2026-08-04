@@ -1,4 +1,5 @@
 import { getAdminDb } from "../lib/server/firebaseAdmin.js";
+import { EVENT_CATEGORIES } from "../lib/server/eventCategory.js";
 import { sourceDocument } from "../lib/server/sourceRegistry.js";
 
 const ALLOWED_PARSERS = new Set([
@@ -31,6 +32,9 @@ export function validateSource(input) {
   const id = sourceId(input.id || input.name);
   const name = String(input.name || "").trim();
   const parser = String(input.parser || "").trim().toLowerCase();
+  const category = input.category
+    ? String(input.category).trim().toLowerCase()
+    : null;
   let url;
 
   try {
@@ -42,6 +46,9 @@ export function validateSource(input) {
   if (!id || !name) throw new Error("Source id and name are required.");
   if (!ALLOWED_PARSERS.has(parser)) {
     throw new Error(`Unsupported source parser: ${parser}`);
+  }
+  if (category && !EVENT_CATEGORIES.includes(category)) {
+    throw new Error(`Unsupported source category: ${category}`);
   }
   if (!["http:", "https:"].includes(url.protocol)) {
     throw new Error("Source URL must use HTTP or HTTPS.");
@@ -58,6 +65,7 @@ export function validateSource(input) {
     id,
     name,
     parser,
+    category,
     url: url.toString(),
     latitude,
     longitude,
