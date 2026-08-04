@@ -8,12 +8,15 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
 
 ## Features
 
-- Search by typed location or browser geolocation.
+- Search by typed location or browser geolocation with a reverse-geocoded
+  city/state/ZIP confirmation.
 - Tonight, tomorrow, weekend, next-seven-days, and visual custom-range searches.
 - Separate categories for live music, participatory music, trivia, theater, and
   comedy.
 - Result-driven genre filters with honest unknown-genre handling.
 - Ticketmaster and registered local-source ingestion.
+- Conservative cross-source deduplication using artist, start time, and venue
+  location signals while preserving provider IDs and ticket links.
 - Geographic discovery of municipal, brewery, bar, festival, and venue sources.
 - ICS, RSS, JSON-LD, linked-event listing, embedded Tockify, custom venue, and
   recurring-series collectors.

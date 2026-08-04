@@ -18,12 +18,15 @@ jobs:
           MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
         run: |
           test -n "$MUSIC_RADAR_INGEST_SECRET"
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
-            --header "Content-Type: application/json" \
-            --data '{"action":"run","limit":3}' \
-            https://music-radar-one.vercel.app/api/discover
+          for attempt in {1..8}; do
+            curl --fail-with-body --silent --show-error \
+              --max-time 58 \
+              --request POST \
+              --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
+              --header "Content-Type: application/json" \
+              --data '{"action":"run","limit":1}' \
+              https://music-radar-one.vercel.app/api/discover
+          done
 
   poster-extraction:
     needs: discover

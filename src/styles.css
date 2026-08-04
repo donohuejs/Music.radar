@@ -101,6 +101,7 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
 .button:disabled { cursor: wait; opacity: .65; }
 .button--primary { width: 100%; background: #b1ff47; color: #111; }
 .button--secondary { background: #262c31; color: #fff; white-space: nowrap; }
+.button--secondary.is-success { color: #111; background: #b1ff47; }
 .button--small { margin-top: 16px; padding: 10px 13px; background: #e9ece7; color: #111; }
 
 .results { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 60px 0 100px; }

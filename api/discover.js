@@ -6,7 +6,7 @@ import {
   updateDiscoveryJob,
 } from "../lib/server/discoveryStore.js";
 import { sourceDocument } from "../lib/server/sourceRegistry.js";
-import { discoverLocationSources } from "../lib/server/sourceDiscovery.js";
+import { discoverLocationSourceBatch } from "../lib/server/sourceDiscovery.js";
 import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 
 function authorized(request) {
@@ -121,8 +121,8 @@ async function registerAutomaticSources(db, candidates) {
   return sources.length;
 }
 
-async function runJobs(db, limit) {
-  const jobs = await loadPendingDiscoveryJobs(db, limit);
+async function runJobs(db, limit, deadline) {
+  const jobs = await loadPendingDiscoveryJobs(db, Math.min(limit, 1));
   const results = [];
 
   for (const job of jobs) {
@@ -132,21 +132,34 @@ async function runJobs(db, limit) {
       startedAt: new Date().toISOString(),
     });
     try {
-      const candidates = await discoverLocationSources(job);
-      const savedCandidates = await saveSourceCandidates(db, candidates, job);
+      const batch = await discoverLocationSourceBatch(job, {
+        organizationOffset: Number(job.organizationOffset || 0),
+        maxOrganizations: 2,
+        deadline,
+      });
+      const savedCandidates = await saveSourceCandidates(db, batch.candidates, job);
       const registeredSources = await registerAutomaticSources(db, savedCandidates);
+      const candidateCount = Number(job.candidateCount || 0) + savedCandidates.length;
+      const registeredSourceCount =
+        Number(job.registeredSourceCount || 0) + registeredSources;
       await updateDiscoveryJob(db, job.id, {
-        status: "complete",
-        completedAt: new Date().toISOString(),
-        candidateCount: savedCandidates.length,
-        registeredSourceCount: registeredSources,
+        status: batch.complete ? "complete" : "pending",
+        completedAt: batch.complete ? new Date().toISOString() : null,
+        organizationOffset: batch.nextOffset,
+        organizationCount: batch.organizationCount,
+        candidateCount,
+        registeredSourceCount,
         error: null,
       });
       results.push({
         id: job.id,
         ok: true,
-        candidateCount: savedCandidates.length,
-        registeredSourceCount: registeredSources,
+        complete: batch.complete,
+        processedOrganizations: batch.processedOrganizations,
+        organizationOffset: batch.nextOffset,
+        organizationCount: batch.organizationCount,
+        candidateCount,
+        registeredSourceCount,
       });
     } catch (error) {
       await updateDiscoveryJob(db, job.id, {
@@ -219,6 +232,10 @@ export default async function handler(request, response) {
     return response.status(200).json({ ok: true, ...coverage });
   }
 
-  const results = await runJobs(db, Number(request.body?.limit) || 2);
+  const results = await runJobs(
+    db,
+    Number(request.body?.limit) || 1,
+    Date.now() + 40_000,
+  );
   return response.status(200).json({ ok: true, processed: results.length, results });
 }

@@ -25,10 +25,14 @@ stored for the area.
 5. Before automatic registration, a high-confidence structured candidate is
    fetched through its real parser and must produce plausible upcoming events.
    It then enters probation rather than being immediately marked trusted.
-6. Successful scheduled ingestion runs increase source confidence. Three
+6. Discovery jobs retain an organization cursor and process at most two
+   organizations per serverless invocation. The worker stops inside a fixed
+   time budget, returns unfinished work to `pending`, and resumes it on the next
+   workflow call instead of relying on a long-running Vercel function.
+7. Successful scheduled ingestion runs increase source confidence. Three
    successful runs can promote a source to trusted; three consecutive failures
    degrade it for review.
-7. PDF or image schedules are retained with `status: needs-extraction` and an
+8. PDF or image schedules are retained with `status: needs-extraction` and an
    asset URL. The GitHub Actions worker runs Poppler or Tesseract only when the
    asset hash changes, then saves the extracted text on the candidate.
 

@@ -268,10 +268,24 @@ export default function App() {
     setLocationStatus("loading");
     setLocationMessage("");
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setCoordinates({ latitude: coords.latitude, longitude: coords.longitude });
-        setLocationText("Current location");
-        setLocationMessage("Location ready. Press Scan to search nearby.");
+      async ({ coords }) => {
+        const current = { latitude: coords.latitude, longitude: coords.longitude };
+        setCoordinates(current);
+        setLocationMessage("Coordinates found. Identifying your city…");
+        try {
+          const params = new URLSearchParams({
+            lat: String(current.latitude),
+            lng: String(current.longitude),
+          });
+          const response = await fetch(`/api/reverse-geocode?${params.toString()}`);
+          const body = await response.json();
+          if (!response.ok || !body.displayName) throw new Error("Location name unavailable");
+          setLocationText(body.displayName);
+          setLocationMessage(`✓ Location found: ${body.displayName}.`);
+        } catch {
+          setLocationText("");
+          setLocationMessage("✓ Location coordinates found. Press Scan to search nearby.");
+        }
         setLocationStatus("success");
       },
       () => {
@@ -365,11 +379,11 @@ export default function App() {
                   placeholder="Enter a city, state, or ZIP"
                   required={!coordinates}
                 />
-                <button className="button button--secondary" type="button" onClick={useCurrentLocation} disabled={locationStatus === "loading"}>
-                  {locationStatus === "loading" ? "Locating…" : "Use current location"}
+                <button className={`button button--secondary ${locationStatus === "success" ? "is-success" : ""}`} type="button" onClick={useCurrentLocation} disabled={locationStatus === "loading"}>
+                  {locationStatus === "loading" ? "Locating…" : locationStatus === "success" ? "✓ Location found" : "Use current location"}
                 </button>
               </div>
-              {locationMessage ? <span className={`field-message field-message--${locationStatus}`}>{locationMessage}</span> : null}
+              {locationMessage ? <span aria-live="polite" className={`field-message field-message--${locationStatus}`}>{locationMessage}</span> : null}
             </label>
 
             <div className="control-grid">

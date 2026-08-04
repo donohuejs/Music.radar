@@ -32,6 +32,9 @@ functions implement search and protected operational endpoints. Firebase Admin
 stores indexed events, registered sources, discovery state, ingestion records,
 and artist-genre cache records.
 
+Browser geolocation is reverse-geocoded server-side for a visible city/state/ZIP
+confirmation, while searches continue to use the precise browser coordinates.
+
 ## Event model highlights
 
 Important normalized fields include:
@@ -44,6 +47,10 @@ Important normalized fields include:
   `community`, or `other`
 - `genres`, using `Genre not listed` instead of invented metadata
 - source attribution, confidence, and verification timestamps
+
+Search-time deduplication uses normalized artist, exact start minute, and postal
+code or canonical venue signals. Merged results retain provider IDs and ticket
+URLs for diagnostics.
 
 ## Shipped Greenville verification sources
 
@@ -58,7 +65,9 @@ poster/PDF assets.
 
 - Vercel runs `/api/ingest-sources` daily.
 - `.github/workflows/discovery.yml` processes geographic discovery jobs and
-  poster extraction.
+  poster extraction. Its repeated bounded calls advance a persisted
+  organization cursor and return unfinished work to `pending` before the
+  serverless deadline.
 - `.github/workflows/genre-enrichment.yml` processes bounded MusicBrainz genre
   batches.
 - Both GitHub workflows use `MUSIC_RADAR_INGEST_SECRET`.
