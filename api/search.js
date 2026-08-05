@@ -9,6 +9,7 @@ import { fetchTicketmasterEvents } from "../lib/server/ticketmaster.js";
 import { EVENT_CATEGORIES } from "../lib/server/eventCategory.js";
 import { searchGeoCells } from "../lib/server/geoCells.js";
 import { queueDiscoveryJobsForArea } from "../lib/server/discoveryStore.js";
+import { recordSearchCoverage } from "../lib/server/searchCoverage.js";
 
 function parseNumber(value) {
   const parsed = Number(value);
@@ -184,7 +185,8 @@ export default async function handler(request, response) {
           new Date(b.startTime).getTime(),
       );
 
-    let discoveryCoverage = { queuedCount: 0, coverageCellCount: 0 };
+    let discoveryCoverage = { queuedCount: 0, coverageCellCount: 0, cells: [] };
+    let coverageRecord = null;
     if (indexedSearchEnabled) {
       try {
         discoveryCoverage = await queueDiscoveryJobsForArea(getAdminDb(), {
@@ -195,6 +197,19 @@ export default async function handler(request, response) {
         });
       } catch (error) {
         console.warn("Could not queue source discovery:", error.message);
+      }
+      try {
+        coverageRecord = await recordSearchCoverage(getAdminDb(), {
+          displayName: resolvedLocation.displayName,
+          radiusMiles: radius,
+          category,
+          startDate,
+          endDate,
+          events: filtered,
+          discoveryCoverage,
+        });
+      } catch (error) {
+        console.warn("Could not record search coverage:", error.message);
       }
     }
 
@@ -223,6 +238,7 @@ export default async function handler(request, response) {
         discoveryQueued: discoveryCoverage.queuedCount > 0,
         discoveryQueuedCellCount: discoveryCoverage.queuedCount,
         discoveryCoverageCellCount: discoveryCoverage.coverageCellCount,
+        coverageState: coverageRecord?.coverageState || null,
         localSources: localVenues.value.sourceStatus,
         sourceHealth: {
           firestore: firestore.health,

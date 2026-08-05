@@ -126,9 +126,22 @@ export default function AdminDashboard() {
               ["Pending discovery", diagnostics.summary.pendingDiscovery],
               ["Review candidates", diagnostics.summary.reviewCandidates],
               ["Failed runs", diagnostics.summary.failedRuns],
+              ["Coverage warnings", diagnostics.summary.blindSpotSearches],
             ].map(([label, value]) => (
               <article className="ops-metric" key={label}><strong>{value}</strong><span>{label}</span></article>
             ))}
+          </section>
+
+          <section className="ops-panel">
+            <div className="ops-panel__heading"><div><p className="results__kicker">SEARCH COVERAGE</p><h2>Geographic blind spots</h2></div><span>{diagnostics.summary.trackedSearches} recent searches</span></div>
+            <div className="ops-table-wrap"><table><thead><tr><th>Area</th><th>Searches</th><th>Warnings</th><th>Commercial only</th><th>No results</th><th>Weak cells</th><th>Contributors</th><th>Last searched</th></tr></thead>
+              <tbody>{diagnostics.coverageAreas.filter((area) => !filter.trim() || area.displayName.toLowerCase().includes(filter.trim().toLowerCase())).map((area) => <tr key={area.displayName}><td><strong>{area.displayName}</strong></td><td>{area.searchCount}</td><td>{area.blindSpotSearches ? <Status tone="warn">{area.blindSpotSearches}</Status> : <Status tone="good">0</Status>}</td><td>{area.commercialOnlySearches}</td><td>{area.emptySearches}</td><td>{area.weakDiscoveryCellCount}</td><td>{area.sourceContributors.join(", ") || "None"}</td><td>{formatTime(area.lastSearchedAt)}</td></tr>)}</tbody>
+            </table></div>
+          </section>
+
+          <section className="ops-panel">
+            <div className="ops-panel__heading"><div><p className="results__kicker">RECENT SEARCHES</p><h2>Source contribution</h2></div><span>Coarse diagnostics only</span></div>
+            <div className="ops-list">{diagnostics.searchCoverage.filter((search) => !filter.trim() || [search.displayName, search.category, ...(search.sourceContributors || [])].some((value) => String(value).toLowerCase().includes(filter.trim().toLowerCase()))).slice(0, 40).map((search) => <article key={search.id}><div><strong>{search.displayName}</strong><small>{search.category} · {search.radiusMiles} mi · {search.returnedCount} results · {formatTime(search.searchedAt)}</small><small>{(search.sourceContributors || []).join(", ") || "No contributing sources"}</small></div><Status tone={search.coverageState === "local-supported" && !search.blindSpot ? "good" : search.coverageState === "empty" ? "bad" : "warn"}>{String(search.coverageState || "unknown").replace("-", " ")}</Status></article>)}</div>
           </section>
 
           <section className="ops-panel">

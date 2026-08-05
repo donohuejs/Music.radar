@@ -163,7 +163,7 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
 .ops-content { margin-top: 42px; }
 .ops-generated { color: #7f898f; font-size: .82rem; }
 .ops-filters { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin: 18px 0; }
-.ops-metrics { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+.ops-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
 .ops-metric { padding: 18px; background: #13171a; border: 1px solid #2a3035; border-radius: 12px; }
 .ops-metric strong { display: block; color: #b1ff47; font-size: 2rem; }
 .ops-metric span { color: #aeb7bc; font-size: .76rem; font-weight: 800; text-transform: uppercase; }

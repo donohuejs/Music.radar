@@ -357,6 +357,7 @@ export default function App() {
     if (coordinates) {
       params.set("lat", String(coordinates.latitude));
       params.set("lng", String(coordinates.longitude));
+      if (locationText.trim()) params.set("location", locationText.trim());
     } else {
       params.set("location", locationText.trim());
     }

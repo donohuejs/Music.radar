@@ -22,6 +22,9 @@ test("summarizes actionable operational health without mutating records", () => 
       { id: "registered", status: "registered", score: 0.99 },
     ],
     runs: [{ id: "run", status: "failed", completedAt: "2026-08-05T09:00:00Z" }],
+    searches: [
+      { id: "search", displayName: "Chicago, IL", searchedAt: "2026-08-05T11:00:00Z", blindSpot: true, coverageState: "commercial-only", weakDiscoveryCellCount: 2, sourceContributors: ["Ticketmaster"] },
+    ],
   }, now);
 
   assert.equal(diagnostics.summary.enabledSources, 2);
@@ -31,6 +34,10 @@ test("summarizes actionable operational health without mutating records", () => 
   assert.equal(diagnostics.summary.failedDiscovery, 1);
   assert.equal(diagnostics.summary.reviewCandidates, 1);
   assert.equal(diagnostics.summary.failedRuns, 1);
+  assert.equal(diagnostics.summary.blindSpotSearches, 1);
+  assert.equal(diagnostics.summary.commercialOnlySearches, 1);
+  assert.equal(diagnostics.coverageAreas[0].displayName, "Chicago, IL");
+  assert.equal(diagnostics.coverageAreas[0].weakDiscoveryCellCount, 2);
   assert.equal(diagnostics.sources[0].id, "broken");
   assert.equal(diagnostics.candidates[0].duplicateSourceId, null);
   assert.equal(source.stale, undefined);

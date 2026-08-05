@@ -122,6 +122,15 @@ source, and enable or disable ingestion. Every attempted mutation is recorded
 in `operationalAudit`; approval is limited to reusable supported parsers and
 duplicate registered URLs are blocked.
 
+Successful indexed searches also write a coarse coverage diagnostic with a
+30-day retention marker to
+`searchCoverage`. Records include the resolved place label, radius, category,
+date window, contributing source names, and discovery-cell IDs. They do not
+store user identifiers or precise coordinates. New searches opportunistically
+delete expired records. The operations dashboard uses
+these records to flag searches with no results, Ticketmaster-only results, or
+completed discovery cells that produced no registered local source.
+
 ## Documentation
 
 - [Project handoff](docs/project-handoff.md)

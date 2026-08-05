@@ -93,6 +93,11 @@ poster/PDF assets.
   backlog, and ingestion failures without shipping secrets to the client
   bundle. Candidate approval/rejection and source refresh/enable controls are
   server-validated and recorded in `operationalAudit`.
+- Indexed searches write coarse `searchCoverage` diagnostics with no user
+  identifier or precise coordinates. Records carry a 30-day retention marker
+  and new searches opportunistically remove expired records. The dashboard aggregates these into
+  area-level warnings for empty searches, commercial-only coverage, and
+  completed discovery cells with no registered local source.
 - Firestore client rules allow public reads only for intended public
   collections; server-side writes use Firebase Admin.
 - Source discovery rejects private/local addresses and bounds geographic cells,
@@ -109,8 +114,9 @@ poster/PDF assets.
    but novel JavaScript calendars and HTML-only event detail pages still require
    a reusable adapter. They remain candidates rather than publishing guessed
    dates or time zones.
-4. Search quality must be tested in markets beyond Greenville, especially dense
-   cities and travel destinations.
+4. Search quality must still be tested in markets beyond Greenville. The
+   dashboard now identifies weak markets from recent searches, but it does not
+   replace deliberate dense-city, rural, tourism, and international testing.
 5. The administrative dashboard does not yet support ambiguous artist-match
    review or detailed per-source ingestion history. Candidate approval requires
    an already recognized reusable parser.
@@ -119,8 +125,8 @@ poster/PDF assets.
 
 1. Add ambiguous genre-match review and detailed per-source ingestion history
    to the admin dashboard.
-2. Connect coverage diagnostics to individual searches so operators can see
-   which sources and geographic cells contributed to a result set.
+2. Add scheduled aggregation and deletion for expired search coverage records,
+   plus richer map visualization for weak geographic cells.
 3. Generalize poster normalization using OCR coordinates, recurring weekday
    validation, and human approval before publication.
 4. Test several contrasting markets: a dense major city, a midsize city, a
