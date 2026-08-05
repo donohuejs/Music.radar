@@ -17,6 +17,9 @@ function authorized(request) {
 }
 
 async function updateEvents(writer, documents, genres, enrichment) {
+  const discogsEvidence = enrichment.evidence?.find(
+    (item) => item.provider === "discogs" && item.status === "matched" && item.sourceUrl,
+  );
   for (const document of documents) {
     writer.set(document.ref, {
       genres,
@@ -25,6 +28,10 @@ async function updateEvents(writer, documents, genres, enrichment) {
         providerArtistId: enrichment.providerArtistId || enrichment.mbid || null,
         mbid: enrichment.mbid || null,
         confidence: enrichment.confidence || null,
+        discogsAttribution: discogsEvidence ? {
+          sourceUrl: discogsEvidence.sourceUrl,
+          observedAt: discogsEvidence.observedAt || new Date().toISOString(),
+        } : null,
         enrichedAt: new Date().toISOString(),
       },
     }, { merge: true });

@@ -236,6 +236,16 @@ function EventCard({ event }) {
           {(event.genres || []).map((genre) => (
             <span className="genre-tag" key={genre}>{genre}</span>
           ))}
+          {event.genreAttribution?.provider === "discogs" ? (
+            <a
+              className="discogs-attribution"
+              href={event.genreAttribution.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {event.genreAttribution.label}
+            </a>
+          ) : null}
         </div>
 
         {event.ticketUrl ? (
@@ -509,6 +519,13 @@ export default function App() {
           {visibleEvents.map((event) => <EventCard key={event.id} event={event} />)}
         </div>
       </section>
+      <footer className="site-footer">
+        <p>
+          This application uses Discogs’ API but is not affiliated with,
+          sponsored or endorsed by Discogs. ‘Discogs’ is a trademark of Zink
+          Media, LLC.
+        </p>
+      </footer>
     </main>
   );
 }

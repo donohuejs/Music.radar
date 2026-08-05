@@ -16,7 +16,7 @@ test("uses repeated Discogs release classifications for an exact artist", async 
       ok: true,
       json: async () => ({
         results: [
-          { id: 1, title: "Cabaret Voltaire - Mix-Up", genre: ["Electronic"], style: ["Industrial"] },
+          { id: 1, title: "Cabaret Voltaire - Mix-Up", uri: "/release/1-mix-up", genre: ["Electronic"], style: ["Industrial"] },
           { id: 2, title: "Cabaret Voltaire - Red Mecca", genre: ["Electronic"], style: ["Industrial"] },
           { id: 3, title: "Cabaret Voltaire (2) - Other", genre: ["Rock"], style: [] },
         ],
@@ -26,6 +26,8 @@ test("uses repeated Discogs release classifications for an exact artist", async 
 
   assert.equal(result.status, "matched");
   assert.deepEqual(result.genres, ["Electronic", "Industrial"]);
+  assert.equal(result.sourceUrl, "https://www.discogs.com/release/1-mix-up");
+  assert.ok(Number.isFinite(new Date(result.observedAt).getTime()));
 });
 
 test("requires an exact Apple Music artist name", async () => {

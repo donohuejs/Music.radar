@@ -2,7 +2,7 @@ name: Enrich event genres
 
 on:
   schedule:
-    - cron: "45 10 * * *"
+    - cron: "15 */4 * * *"
   workflow_dispatch:
 
 permissions:

@@ -35,6 +35,10 @@ optional credentialed corroboration providers, while MusicBrainz remains the
 no-key fallback. The cache preserves every provider's evidence without changing
 event documents or the enrichment endpoint; when multiple providers match,
 only genres supported by at least two are published.
+Discogs evidence has a six-hour maximum display/cache window, the genre worker
+runs every four hours, and search suppresses stale Discogs-influenced genres.
+Attributed listings link directly to a supporting Discogs release and the public
+interface carries the required trademark/non-affiliation notice.
 
 Browser geolocation is reverse-geocoded server-side for a visible city/state/ZIP
 confirmation, while searches continue to use the precise browser coordinates.

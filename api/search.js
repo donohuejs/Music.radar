@@ -10,6 +10,7 @@ import { EVENT_CATEGORIES } from "../lib/server/eventCategory.js";
 import { searchGeoCells } from "../lib/server/geoCells.js";
 import { queueDiscoveryJobsForArea } from "../lib/server/discoveryStore.js";
 import { recordSearchCoverage } from "../lib/server/searchCoverage.js";
+import { applyDiscogsDisplayCompliance } from "../lib/server/discogsCompliance.js";
 
 function parseNumber(value) {
   const parsed = Number(value);
@@ -61,7 +62,7 @@ async function fetchStoredEvents({ startDate, endDate, lat, lng, radius }) {
   const events = new Map();
   for (const snapshot of snapshots) {
     for (const doc of snapshot.docs) {
-      events.set(doc.id, { id: doc.id, ...doc.data() });
+      events.set(doc.id, applyDiscogsDisplayCompliance({ id: doc.id, ...doc.data() }));
     }
   }
   return [...events.values()];

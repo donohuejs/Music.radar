@@ -83,6 +83,11 @@ If these values are absent, enrichment skips those providers and continues with
 MusicBrainz. When multiple providers match, a genre must be supported by at
 least two before it is written to an event.
 
+Discogs-enabled enrichment refreshes every four hours. Its evidence expires
+after six hours; stale Discogs-influenced genres are suppressed from search
+responses. Public listings link attributed genre data to a supporting Discogs
+release, and the interface includes the trademark notice required by Discogs.
+
 ## Operator commands
 
 In PowerShell, load the ingestion secret without putting it in shell history:

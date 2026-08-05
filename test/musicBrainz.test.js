@@ -191,3 +191,10 @@ test("invalidates genre caches when a provider becomes available", () => {
   assert.equal(genreCacheIsFresh(cache, Date.now(), musicBrainzOnly), true);
   assert.equal(genreCacheIsFresh(cache, Date.now(), withDiscogs), false);
 });
+
+test("expires Discogs-enabled cache records after six hours", () => {
+  const configuration = genreProviderConfiguration({ DISCOGS_TOKEN: "secret" });
+  const checkedAt = "2026-08-05T06:00:00.000Z";
+  assert.equal(genreCacheIsFresh({ status: "matched", checkedAt, providerConfiguration: configuration }, Date.parse("2026-08-05T11:59:59.000Z"), configuration), true);
+  assert.equal(genreCacheIsFresh({ status: "matched", checkedAt, providerConfiguration: configuration }, Date.parse("2026-08-05T12:00:00.000Z"), configuration), false);
+});
