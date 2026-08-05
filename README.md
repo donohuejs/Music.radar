@@ -23,6 +23,8 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
 - ICS, RSS, JSON-LD, linked-event listing, embedded Tockify, custom venue, and
   recurring-series collectors.
 - PDF/image poster detection and OCR staging.
+- Conservative poster OCR draft extraction requiring explicit years, with all
+  drafts held for human review before publication.
 - Cached, conservative MusicBrainz genre enrichment.
 
 ## Local development

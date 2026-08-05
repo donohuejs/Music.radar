@@ -69,6 +69,9 @@ an existing reusable parser, after which the workflow runs source ingestion.
 - Poster detection requires an actual PDF or image asset; an ordinary page named
   `shows`, `lineup`, or `schedule` is not sent to OCR.
 - Unstructured or poster-only pages are not automatically added to live search.
+- After OCR, poster candidates move to `poster-review`. Explicit full dates may
+  produce structured draft suggestions, but missing times and time zones remain
+  visible validation errors and no draft is publishable without operator review.
 - Existing source documents are preserved and remain administratively
   disableable.
 

@@ -23,7 +23,7 @@ User search
 Scheduled workers
   -> registered source ingestion -> normalized Firestore events
   -> discovery -> candidate calendars/pages/posters -> validated sources
-  -> poster extraction -> stored OCR text
+  -> poster extraction -> stored OCR text -> review-only structured drafts
   -> MusicBrainz enrichment -> cached artist genres -> updated events
 ```
 
@@ -105,9 +105,11 @@ poster/PDF assets.
 
 ## Known limitations
 
-1. Poster discovery stores OCR text but does not yet generically transform every
-   arbitrary poster layout into events. Structured recurring-series data is the
-   verified fallback.
+1. Poster discovery now creates conservative review-only drafts when OCR
+   contains explicit full dates. Arbitrary layouts, missing years, uncertain
+   titles, times, and time zones still require human validation before events
+   can be published; structured recurring-series data remains the verified
+   fallback.
 2. Many small/local artists are absent from MusicBrainz. Exact-name and
    high-confidence matching intentionally leaves uncertain artists unclassified.
 3. Discovery now recognizes linked JSON-LD event listings as durable sources,

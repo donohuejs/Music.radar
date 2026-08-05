@@ -50,3 +50,11 @@ test("marks review candidates that duplicate a registered source URL", () => {
   });
   assert.equal(diagnostics.candidates[0].duplicateSourceId, "existing");
 });
+
+test("keeps full poster OCR out of dashboard diagnostics", () => {
+  const diagnostics = buildOperationalDiagnostics({
+    candidates: [{ id: "poster", status: "poster-review", extractedText: "x".repeat(1000) }],
+  });
+  assert.equal(diagnostics.candidates[0].extractedText, undefined);
+  assert.equal(diagnostics.candidates[0].extractedTextPreview.length, 500);
+});

@@ -10,6 +10,7 @@ import {
 import { sourceDocument } from "../lib/server/sourceRegistry.js";
 import { discoverLocationSourceBatch } from "../lib/server/sourceDiscovery.js";
 import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
+import { extractPosterDrafts } from "../lib/server/posterDrafts.js";
 
 function authorized(request) {
   const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "");
@@ -211,6 +212,7 @@ export default async function handler(request, response) {
     if (!candidateId || !/^[a-f0-9]{64}$/i.test(assetHash) || !extractedText) {
       return response.status(400).json({ error: "Candidate id, asset hash, and extracted text are required." });
     }
+    const posterDrafts = extractPosterDrafts(extractedText, { candidateId });
     await db
       .collection("sourceCandidates")
       .doc(candidateId)
@@ -220,10 +222,14 @@ export default async function handler(request, response) {
           extractedText: extractedText.slice(0, 100_000),
           extractionStatus: "extracted",
           extractedAt: new Date().toISOString(),
+          posterDrafts,
+          posterDraftCount: posterDrafts.length,
+          status: "poster-review",
+          lifecycle: "poster-review",
         },
         { merge: true },
       );
-    return response.status(200).json({ ok: true, candidateId });
+    return response.status(200).json({ ok: true, candidateId, posterDraftCount: posterDrafts.length });
   }
 
   if (action === "queue") {
