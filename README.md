@@ -122,8 +122,8 @@ Invoke-RestMethod `
 ```
 
 Both operations also run on schedules. The genre workflow repeatedly requests
-batches of eight and follows Firestore page cursors until the complete eligible
-backlog is drained, with a 40-batch safety limit so persistent provider failures
+batches of four and follows Firestore page cursors until the complete eligible
+backlog is drained, with an 80-batch safety limit so persistent provider failures
 remain visible. Manual calls are useful
 immediately after deploying normalization changes or when diagnosing data gaps.
 

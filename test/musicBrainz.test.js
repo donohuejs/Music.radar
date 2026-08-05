@@ -173,6 +173,68 @@ test("publishes only genres corroborated by multiple configured providers", asyn
   assert.equal(result.provider, "discogs+appleMusic+musicbrainz");
 });
 
+test("starts independent genre providers concurrently", async () => {
+  let discogsStarted = false;
+  let musicBrainzStarted = false;
+  const result = await enrichArtistGenres("Example Artist", {
+    discogs: {
+      token: "discogs-token",
+      fetchImpl: async () => {
+        discogsStarted = true;
+        await Promise.resolve();
+        assert.equal(musicBrainzStarted, true);
+        return {
+          ok: true,
+          json: async () => ({ results: [
+            { id: 1, title: "Example Artist - One", genre: ["Electronic"], style: [] },
+            { id: 2, title: "Example Artist - Two", genre: ["Electronic"], style: [] },
+          ] }),
+        };
+      },
+    },
+    musicbrainz: {
+      fetchImpl: async (url) => {
+        musicBrainzStarted = true;
+        assert.equal(discogsStarted, true);
+        return {
+          ok: true,
+          json: async () => url.includes("/artist/?")
+            ? { artists: [{ id: "mbid", name: "Example Artist", score: 100 }] }
+            : { genres: [{ name: "electronic", count: 5 }] },
+        };
+      },
+      wait: async () => {},
+    },
+  });
+
+  assert.equal(result.status, "matched");
+  assert.deepEqual(result.genres, ["Electronic"]);
+});
+
+test("keeps a valid provider result when Discogs fails", async () => {
+  const result = await enrichArtistGenres("Example Artist", {
+    discogs: {
+      token: "discogs-token",
+      fetchImpl: async () => ({ ok: false, status: 503 }),
+    },
+    musicbrainz: {
+      fetchImpl: async (url) => ({
+        ok: true,
+        json: async () => url.includes("/artist/?")
+          ? { artists: [{ id: "mbid", name: "Example Artist", score: 100 }] }
+          : { genres: [{ name: "rock", count: 5 }] },
+      }),
+      wait: async () => {},
+    },
+  });
+
+  assert.equal(result.status, "matched");
+  assert.deepEqual(result.genres, ["Rock"]);
+  assert.deepEqual(result.errors.map(({ provider, retryable }) => ({ provider, retryable })), [
+    { provider: "discogs", retryable: true },
+  ]);
+});
+
 test("uses shorter cache freshness for unresolved artists", () => {
   const now = Date.parse("2026-08-05T12:00:00.000Z");
   const configuration = "musicbrainz";

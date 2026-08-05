@@ -11,7 +11,7 @@ permissions:
 jobs:
   enrich:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Enrich uncategorized artists in bounded batches
         env:
@@ -20,9 +20,9 @@ jobs:
           test -n "$MUSIC_RADAR_INGEST_SECRET"
           drained=false
           cursor=""
-          for batch in $(seq 1 40); do
+          for batch in $(seq 1 80); do
             body=$(jq --null-input --compact-output --arg cursor "$cursor" \
-              '{limit: 8} + if $cursor == "" then {} else {cursor: $cursor} end')
+              '{limit: 4} + if $cursor == "" then {} else {cursor: $cursor} end')
             response=$(curl --fail-with-body --silent --show-error \
               --request POST \
               --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
@@ -46,6 +46,6 @@ jobs:
             sleep 2
           done
           if [ "$drained" != "true" ]; then
-            echo "Genre enrichment reached its 40-batch safety limit before draining." >&2
+            echo "Genre enrichment reached its 80-batch safety limit before draining." >&2
             exit 1
           fi
