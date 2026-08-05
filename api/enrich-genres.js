@@ -1,4 +1,5 @@
 import { getAdminDb } from "../lib/server/firebaseAdmin.js";
+import { FieldPath } from "firebase-admin/firestore";
 import {
   artistCacheId,
   enrichArtistGenres,
@@ -45,12 +46,18 @@ export default async function handler(request, response) {
   }
 
   const limit = Math.min(Math.max(Number(request.body?.limit) || 4, 1), 8);
+  const cursor = typeof request.body?.cursor === "string" && request.body.cursor.length <= 1500
+    ? request.body.cursor
+    : "";
   try {
-    const snapshot = await db
+    const pageSize = 250;
+    let query = db
       .collection("events")
       .where("genres", "array-contains", "Genre not listed")
-      .limit(250)
-      .get();
+      .orderBy(FieldPath.documentId())
+      .limit(pageSize);
+    if (cursor) query = query.startAfter(cursor);
+    const snapshot = await query.get();
     const groups = new Map();
     snapshot.docs.forEach((document) => {
       const event = document.data();
@@ -70,6 +77,7 @@ export default async function handler(request, response) {
     let matched = 0;
     let updatedEvents = 0;
     let cacheHits = 0;
+    let pageExhausted = true;
     const errors = [];
 
     for (const group of groups.values()) {
@@ -82,7 +90,10 @@ export default async function handler(request, response) {
           continue;
         }
       } else {
-        if (checked >= limit) break;
+        if (checked >= limit) {
+          pageExhausted = false;
+          break;
+        }
         checked += 1;
         try {
           enrichment = await enrichArtistGenres(group.artistName);
@@ -92,6 +103,7 @@ export default async function handler(request, response) {
             error: error.message,
             retryable: Boolean(error.retryable),
           });
+          pageExhausted = false;
           await new Promise((resolve) => setTimeout(resolve, 1100));
           continue;
         }
@@ -115,6 +127,11 @@ export default async function handler(request, response) {
     }
 
     await writer.close();
+    const lastDocumentId = snapshot.docs.at(-1)?.id || null;
+    const scanComplete = pageExhausted && snapshot.size < pageSize;
+    const nextCursor = pageExhausted && snapshot.size === pageSize
+      ? lastDocumentId
+      : cursor || null;
     return response.status(200).json({
       ok: true,
       candidateArtists: groups.size,
@@ -123,6 +140,8 @@ export default async function handler(request, response) {
       cacheHits,
       matchedArtists: matched,
       updatedEvents,
+      scanComplete,
+      nextCursor,
       errors,
     });
   } catch (error) {

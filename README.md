@@ -116,8 +116,11 @@ Invoke-RestMethod `
   -Body '{"limit":8}'
 ```
 
-Both operations also run on schedules. Manual calls are useful immediately
-after deploying normalization changes or when diagnosing data gaps.
+Both operations also run on schedules. The genre workflow repeatedly requests
+batches of eight and follows Firestore page cursors until the complete eligible
+backlog is drained, with a 40-batch safety limit so persistent provider failures
+remain visible. Manual calls are useful
+immediately after deploying normalization changes or when diagnosing data gaps.
 
 The `Discover local event sources` GitHub workflow can also be started manually
 with optional latitude, longitude, radius, and force inputs. The force input

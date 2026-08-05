@@ -18,12 +18,34 @@ jobs:
           MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
         run: |
           test -n "$MUSIC_RADAR_INGEST_SECRET"
-          for batch in 1 2 3 4 5 6; do
-            curl --fail-with-body --silent --show-error \
+          drained=false
+          cursor=""
+          for batch in $(seq 1 40); do
+            body=$(jq --null-input --compact-output --arg cursor "$cursor" \
+              '{limit: 8} + if $cursor == "" then {} else {cursor: $cursor} end')
+            response=$(curl --fail-with-body --silent --show-error \
               --request POST \
               --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
               --header "Content-Type: application/json" \
-              --data '{"limit":4}' \
-              https://music-radar-one.vercel.app/api/enrich-genres
+              --data "$body" \
+              https://music-radar-one.vercel.app/api/enrich-genres)
+            echo "$response" | jq --compact-output .
+            lookups=$(echo "$response" | jq --raw-output '.musicBrainzLookups // empty')
+            if ! [[ "$lookups" =~ ^[0-9]+$ ]]; then
+              echo "Genre enrichment returned an invalid lookup count." >&2
+              exit 1
+            fi
+            scan_complete=$(echo "$response" | jq --raw-output '.scanComplete // false')
+            next_cursor=$(echo "$response" | jq --raw-output '.nextCursor // empty')
+            if [ "$scan_complete" = "true" ]; then
+              drained=true
+              echo "Genre enrichment backlog is drained."
+              break
+            fi
+            cursor="$next_cursor"
             sleep 2
           done
+          if [ "$drained" != "true" ]; then
+            echo "Genre enrichment reached its 40-batch safety limit before draining." >&2
+            exit 1
+          fi

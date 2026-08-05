@@ -83,8 +83,10 @@ poster/PDF assets.
   serverless deadline. Queue selection is priority-aware and oldest-first,
   interrupted jobs are recovered through expiring leases, and complete search
   radii retain their outer discovery cells.
-- `.github/workflows/genre-enrichment.yml` processes bounded MusicBrainz genre
-  batches.
+- `.github/workflows/genre-enrichment.yml` drains MusicBrainz work in bounded
+  batches of eight while following event-page cursors until the complete
+  eligible collection has been scanned. A 40-batch safety limit fails visibly
+  instead of looping indefinitely during persistent provider errors.
 - Both GitHub workflows use `MUSIC_RADAR_INGEST_SECRET`.
 
 ## Security and operations
