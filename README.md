@@ -74,13 +74,18 @@ In PowerShell, load the ingestion secret without putting it in shell history:
 $secret = Read-Host "Paste your INGEST_SECRET"
 ```
 
-Refresh registered event sources:
+Process registered event sources in resumable batches until the current registry
+cycle is complete:
 
 ```powershell
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "https://music-radar-one.vercel.app/api/ingest-sources" `
-  -Headers @{ Authorization = "Bearer $secret" }
+do {
+  $result = Invoke-RestMethod `
+    -Method Post `
+    -Uri "https://music-radar-one.vercel.app/api/ingest-sources" `
+    -ContentType "application/json" `
+    -Headers @{ Authorization = "Bearer $secret" } `
+    -Body '{"limit":4}'
+} until ($result.cycleComplete)
 ```
 
 Run a bounded MusicBrainz enrichment batch:

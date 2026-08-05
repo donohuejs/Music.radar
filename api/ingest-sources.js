@@ -3,8 +3,9 @@ import { getAdminDb } from "../lib/server/firebaseAdmin.js";
 import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 import {
   ensureDefaultSources,
-  loadEnabledSources,
-  updateDiscoveredSourceHealth,
+  loadSourceIngestionBatch,
+  saveSourceIngestionCursor,
+  updateSourceIngestionHealth,
 } from "../lib/server/sourceRegistry.js";
 
 function authorized(request) {
@@ -35,16 +36,23 @@ export default async function handler(request, response) {
 
   try {
     const registryBootstrapped = await ensureDefaultSources(db);
-    const sources = await loadEnabledSources(db);
+    const batch = await loadSourceIngestionBatch(db, {
+      limit: Number(request.body?.limit || request.query?.limit) || 4,
+      force: request.body?.force === true || request.query?.force === "true",
+    });
+    const sources = batch.sources;
     const result = await fetchLocalVenueEvents({ sources });
     const imported = await upsertEvents(db, result.events);
-    await updateDiscoveredSourceHealth(db, sources, result.sourceStatus);
+    await updateSourceIngestionHealth(db, sources, result.sourceStatus);
+    await saveSourceIngestionCursor(db, batch);
 
     await recordIngestionRun(db, {
       source: "registered-sources",
       status: "success",
       startedAt,
       sourceCount: sources.length,
+      scannedSourceCount: batch.scannedCount,
+      cycleComplete: batch.cycleComplete,
       imported,
       registryBootstrapped,
       sourceStatus: result.sourceStatus,
@@ -53,6 +61,8 @@ export default async function handler(request, response) {
     return response.status(200).json({
       ok: true,
       sourceCount: sources.length,
+      scannedSourceCount: batch.scannedCount,
+      cycleComplete: batch.cycleComplete,
       imported,
       registryBootstrapped,
       sourceStatus: result.sourceStatus,

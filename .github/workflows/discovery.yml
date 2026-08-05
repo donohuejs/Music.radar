@@ -48,7 +48,7 @@ permissions:
 jobs:
   discover:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - name: Register requested verified source
         if: ${{ inputs.sourceName != '' && inputs.sourceUrl != '' && inputs.latitude != '' && inputs.longitude != '' }}
@@ -121,10 +121,20 @@ jobs:
         env:
           MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
         run: |
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
-            https://music-radar-one.vercel.app/api/ingest-sources
+          for batch in {1..20}; do
+            response="$(curl --fail-with-body --silent --show-error \
+              --max-time 58 \
+              --request POST \
+              --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
+              --header "Content-Type: application/json" \
+              --data '{"limit":4}' \
+              https://music-radar-one.vercel.app/api/ingest-sources)"
+            echo "$response"
+            if [[ "$(jq -r '.cycleComplete // false' <<< "$response")" == "true" ]]; then
+              echo "Registered source ingestion cycle is complete."
+              break
+            fi
+          done
 
   poster-extraction:
     needs: discover

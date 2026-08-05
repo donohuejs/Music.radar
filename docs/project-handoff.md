@@ -63,7 +63,10 @@ poster/PDF assets.
 
 ## Automation
 
-- Vercel runs `/api/ingest-sources` daily.
+- Vercel runs one resumable `/api/ingest-sources` registry batch daily, and the
+  discovery workflow drains additional batches. A persisted cursor removes the
+  former 250-source ceiling; per-source due times and conditional ICS/RSS
+  requests reduce unnecessary collection work.
 - `.github/workflows/discovery.yml` processes geographic discovery jobs and
   poster extraction. Its repeated bounded calls advance a persisted
   organization cursor and return unfinished work to `pending` before the

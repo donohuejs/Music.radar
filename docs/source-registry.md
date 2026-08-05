@@ -64,8 +64,15 @@ populated.
 ## Scheduling
 
 Vercel calls `/api/ingest-sources` daily at 09:00 UTC. Vercel supplies
-`CRON_SECRET` as a bearer token. Individual sources are isolated, so one broken
-calendar does not stop the others from being indexed.
+`CRON_SECRET` as a bearer token. The endpoint reads a deterministic bounded page
+of the registry and persists its cursor only after event and health writes
+succeed. The discovery workflow drains additional pages daily, while a partial
+cycle resumes on its next run instead of dropping sources beyond a fixed limit.
+
+Every source stores `nextIngestAt`. Changed sources are checked on a normal
+cadence, unchanged conditional-feed responses avoid repeat downloads, empty
+sources back off, and failures use bounded exponential retries. Individual
+sources remain isolated, so one broken calendar does not stop the others.
 
 ## Adding coverage
 
