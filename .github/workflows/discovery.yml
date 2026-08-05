@@ -102,16 +102,20 @@ jobs:
           MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
         run: |
           test -n "$MUSIC_RADAR_INGEST_SECRET"
-          for attempt in {1..8}; do
+          for attempt in {1..20}; do
             response="$(curl --fail-with-body --silent --show-error \
               --max-time 58 \
               --request POST \
               --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
               --header "Content-Type: application/json" \
-              --data '{"action":"run","limit":1}' \
+              --data '{"action":"run","limit":2}' \
               https://music-radar-one.vercel.app/api/discover)"
             echo "$response"
             jq -e '(.results // []) | all(.ok == true)' <<< "$response" >/dev/null
+            if [[ "$(jq -r '.processed // 0' <<< "$response")" == "0" ]]; then
+              echo "Discovery queue is drained or waiting for deferred retries."
+              break
+            fi
           done
       - name: Ingest registered sources
         env:

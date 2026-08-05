@@ -67,7 +67,9 @@ poster/PDF assets.
 - `.github/workflows/discovery.yml` processes geographic discovery jobs and
   poster extraction. Its repeated bounded calls advance a persisted
   organization cursor and return unfinished work to `pending` before the
-  serverless deadline.
+  serverless deadline. Queue selection is priority-aware and oldest-first,
+  interrupted jobs are recovered through expiring leases, and complete search
+  radii retain their outer discovery cells.
 - `.github/workflows/genre-enrichment.yml` processes bounded MusicBrainz genre
   batches.
 - Both GitHub workflows use `MUSIC_RADAR_INGEST_SECRET`.

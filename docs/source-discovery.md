@@ -7,9 +7,9 @@ stored for the area.
 
 ## Discovery flow
 
-1. A searched radius is divided into bounded discovery cells. New cells and
-   cells not completed in the previous seven days are queued. At most 25 cells
-   are considered per search.
+1. A searched radius is divided into overlapping discovery cells. New cells and
+   cells not completed in the previous seven days are queued. The complete cell
+   set is retained for supported search radii instead of dropping outer cells.
 2. The protected discovery worker queries OpenStreetMap for nearby government
    organizations, breweries, bars, pubs, music and concert venues, cultural
    venues, parks, and other likely event hosts that publish an official
@@ -25,10 +25,11 @@ stored for the area.
 5. Before automatic registration, a high-confidence structured candidate is
    fetched through its real parser and must produce plausible upcoming events.
    It then enters probation rather than being immediately marked trusted.
-6. Discovery jobs retain an organization cursor and process at most two
-   organizations per serverless invocation. The worker stops inside a fixed
-   time budget, returns unfinished work to `pending`, and resumes it on the next
-   workflow call instead of relying on a long-running Vercel function.
+6. Discovery jobs retain an organization cursor and process a small organization
+   batch per serverless invocation. Expiring leases recover interrupted jobs,
+   oldest work runs first within each priority, and consecutive failures are
+   tracked separately from successful batches. The workflow drains bounded
+   calls until no immediately eligible work remains.
 7. Successful scheduled ingestion runs increase source confidence. Three
    successful runs can promote a source to trusted; three consecutive failures
    degrade it for review.

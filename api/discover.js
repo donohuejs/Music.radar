@@ -1,5 +1,7 @@
 import { getAdminDb } from "../lib/server/firebaseAdmin.js";
 import {
+  claimDiscoveryJob,
+  discoveryFailureState,
   loadPendingDiscoveryJobs,
   queueDiscoveryJobsForArea,
   saveSourceCandidates,
@@ -122,15 +124,13 @@ async function registerAutomaticSources(db, candidates) {
 }
 
 async function runJobs(db, limit, deadline) {
-  const jobs = await loadPendingDiscoveryJobs(db, Math.min(limit, 1));
+  const jobs = await loadPendingDiscoveryJobs(db, Math.min(limit, 3));
   const results = [];
 
-  for (const job of jobs) {
-    await updateDiscoveryJob(db, job.id, {
-      status: "running",
-      attempts: Number(job.attempts || 0) + 1,
-      startedAt: new Date().toISOString(),
-    });
+  for (const pendingJob of jobs) {
+    if (Date.now() >= deadline) break;
+    const job = await claimDiscoveryJob(db, pendingJob);
+    if (!job) continue;
     try {
       const batch = await discoverLocationSourceBatch(job, {
         organizationOffset: Number(job.organizationOffset || 0),
@@ -152,6 +152,9 @@ async function runJobs(db, limit, deadline) {
         candidateCount,
         registeredSourceCount,
         priority: batch.complete ? 0 : Number(job.priority || 0),
+        consecutiveFailures: 0,
+        leaseExpiresAt: null,
+        retryAfter: null,
         error: null,
       });
       results.push({
@@ -165,22 +168,16 @@ async function runJobs(db, limit, deadline) {
         registeredSourceCount,
       });
     } catch (error) {
-      const attempts = Number(job.attempts || 0) + 1;
-      const terminal = attempts >= 3;
+      const failure = discoveryFailureState(job);
       await updateDiscoveryJob(db, job.id, {
-        status: terminal ? "failed" : "pending",
-        completedAt: terminal ? new Date().toISOString() : null,
-        retryAfter: terminal
-          ? null
-          : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-        priority: 0,
+        ...failure,
         error: error.message,
       });
       results.push({
         id: job.id,
-        ok: !terminal,
-        deferred: !terminal,
-        attempts,
+        ok: failure.status !== "failed",
+        deferred: failure.status === "pending",
+        consecutiveFailures: failure.consecutiveFailures,
         error: error.message,
       });
     }
