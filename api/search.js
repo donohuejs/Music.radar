@@ -149,6 +149,7 @@ export default async function handler(request, response) {
                 radius,
                 startDate,
                 endDate,
+                category,
               }),
             [],
           )
@@ -212,6 +213,10 @@ export default async function handler(request, response) {
         storedCount: firestore.value.length,
         localVenueCount: localVenues.value.events.length,
         liveTicketmasterCount: ticketmaster.value.length,
+        ticketmasterRequestCount:
+          ticketmaster.value.collectionStatus?.requestCount || 0,
+        ticketmasterTruncated:
+          ticketmaster.value.collectionStatus?.truncated === true,
         returnedCount: filtered.length,
         firebaseConfigured: Boolean(getAdminDb()),
         ticketmasterConfigured: Boolean(process.env.TICKETMASTER_API_KEY),

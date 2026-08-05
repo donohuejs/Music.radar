@@ -52,6 +52,12 @@ Search-time deduplication uses normalized artist, exact start minute, and postal
 code or canonical venue signals. Merged results retain provider IDs and ticket
 URLs for diagnostics.
 
+Ticketmaster searches map product categories to provider classifications,
+paginate through available results, and split date windows when a dense query
+would exceed the provider's deep-paging boundary. Automatically discovered
+calendars are treated as mixed-category sources unless an operator supplies a
+verified default.
+
 ## Shipped Greenville verification sources
 
 Greenville is the initial coverage test market, not a search-system special

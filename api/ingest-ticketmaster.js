@@ -28,6 +28,7 @@ export default async function handler(request, response) {
     radius = 50,
     days = 90,
     city = "Greenville, SC",
+    category = "music",
   } = request.body || {};
 
   const startDate = new Date();
@@ -43,6 +44,7 @@ export default async function handler(request, response) {
       startDate,
       endDate,
       city,
+      category,
     });
 
     const imported = await upsertEvents(

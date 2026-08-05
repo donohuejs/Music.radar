@@ -25,6 +25,8 @@ stored for the area.
 5. Before automatic registration, a high-confidence structured candidate is
    fetched through its real parser and must produce plausible upcoming events.
    It then enters probation rather than being immediately marked trusted.
+   Automatically discovered mixed calendars do not force a music category;
+   event-level evidence is classified during normalization.
 6. Discovery jobs retain an organization cursor and process a small organization
    batch per serverless invocation. Expiring leases recover interrupted jobs,
    oldest work runs first within each priority, and consecutive failures are

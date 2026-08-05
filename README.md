@@ -15,7 +15,8 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
 - Separate categories for live music, participatory music, trivia, theater, and
   comedy.
 - Result-driven genre filters with honest unknown-genre handling.
-- Ticketmaster and registered local-source ingestion.
+- Category-aware, paginated Ticketmaster collection and registered local-source
+  ingestion.
 - Conservative cross-source deduplication using artist, start time, and venue
   location signals while preserving provider IDs and ticket links.
 - Geographic discovery of municipal, brewery, bar, festival, and venue sources.

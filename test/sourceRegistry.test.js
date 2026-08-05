@@ -5,6 +5,7 @@ import {
   ensureDefaultSources,
   loadEnabledSources,
   loadSourceIngestionBatch,
+  normalizeRegisteredSource,
   sourceIngestionUpdate,
   sourceIsDue,
 } from "../lib/server/sourceRegistry.js";
@@ -82,6 +83,17 @@ test("schedules successful, unchanged, empty, and failed sources adaptively", ()
   );
   assert.equal(failed.consecutiveFailures, 3);
   assert.equal(failed.nextIngestAt, "2026-08-06T12:00:00.000Z");
+});
+
+test("migrates legacy discovered sources to mixed categories without changing verified sources", () => {
+  assert.deepEqual(
+    normalizeRegisteredSource({ discovered: true, category: "music" }),
+    { discovered: true, category: null, categoryMode: "mixed" },
+  );
+  assert.deepEqual(
+    normalizeRegisteredSource({ category: "music" }),
+    { category: "music" },
+  );
 });
 
 test("loads a resumable source page and filters it by due time", async () => {

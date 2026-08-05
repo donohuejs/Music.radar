@@ -28,3 +28,14 @@ test("separates trivia from a source's broad music category", () => {
     "trivia",
   );
 });
+
+test("lets specific theater and comedy evidence override a broad source category", () => {
+  assert.equal(
+    inferEventCategory({ name: "Hamilton Broadway Musical", category: "music" }),
+    "theater",
+  );
+  assert.equal(
+    inferEventCategory({ name: "Friday Stand-Up Comedy", category: "music" }),
+    "comedy",
+  );
+});
