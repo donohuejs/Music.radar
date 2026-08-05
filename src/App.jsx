@@ -1,7 +1,11 @@
 import { useId, useMemo, useState } from "react";
 import { getDateRange } from "./lib/dateRange.js";
 import { calendarDays, parseLocalDate, toLocalDateValue } from "./lib/calendar.js";
-import { confidenceExplanation, scanButtonLabel } from "./lib/eventDisplay.js";
+import {
+  confidenceExplanation,
+  groupTheaterRuns,
+  scanButtonLabel,
+} from "./lib/eventDisplay.js";
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100];
 const DATE_OPTIONS = [
@@ -34,6 +38,20 @@ function formatDate(value) {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
+}
+
+function formatTheaterRun(startValue, endValue) {
+  const start = new Date(startValue);
+  const end = new Date(endValue);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+    return formatDate(startValue);
+  }
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  return `${formatter.format(start)} – ${formatter.format(end)}`;
 }
 
 function localDateInput(date = new Date()) {
@@ -188,7 +206,10 @@ function EventCard({ event }) {
 
       <div className="event-card__body">
         <div className="event-card__eyebrow">
-          {formatDate(event.startTime)}
+          {event.runEndTime
+            ? formatTheaterRun(event.startTime, event.runEndTime)
+            : formatDate(event.startTime)}
+          {event.performanceCount ? ` · ${event.performanceCount} performances` : ""}
           {Number.isFinite(event.distanceMiles)
             ? ` · ${event.distanceMiles.toFixed(1)} mi`
             : ""}
@@ -244,9 +265,11 @@ export default function App() {
   const [locationStatus, setLocationStatus] = useState("idle");
   const [locationMessage, setLocationMessage] = useState("");
 
+  const displayedEvents = useMemo(() => groupTheaterRuns(events), [events]);
+
   const genreOptions = useMemo(() => {
     const counts = new Map();
-    events.forEach((event) => {
+    displayedEvents.forEach((event) => {
       (event.genres || []).forEach((eventGenre) => {
         counts.set(eventGenre, (counts.get(eventGenre) || 0) + 1);
       });
@@ -254,23 +277,23 @@ export default function App() {
     return [...counts.entries()]
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [events]);
+  }, [displayedEvents]);
   const visibleEvents = useMemo(
     () => genre === "all"
-      ? events
-      : events.filter((event) => (event.genres || []).includes(genre)),
-    [events, genre],
+      ? displayedEvents
+      : displayedEvents.filter((event) => (event.genres || []).includes(genre)),
+    [displayedEvents, genre],
   );
 
   const resultSummary = useMemo(() => {
     if (status === "loading") return "Scanning nearby sources…";
     if (status === "error") return message;
     if (status === "success") {
-      const filtered = visibleEvents.length !== events.length;
-      return `${visibleEvents.length} event${visibleEvents.length === 1 ? "" : "s"} found${filtered ? ` (${events.length} before genre filter)` : ""}`;
+      const filtered = visibleEvents.length !== displayedEvents.length;
+      return `${visibleEvents.length} event${visibleEvents.length === 1 ? "" : "s"} found${filtered ? ` (${displayedEvents.length} before genre filter)` : ""}`;
     }
     return "Search nationwide listings, enhanced by local venue coverage where available.";
-  }, [events.length, message, status, visibleEvents.length]);
+  }, [displayedEvents.length, message, status, visibleEvents.length]);
 
   function useCurrentLocation() {
     if (!navigator.geolocation) {
@@ -449,7 +472,7 @@ export default function App() {
             <p className="results__kicker">RADAR RESULTS</p>
             <h2>{resultSummary}</h2>
           </div>
-          {status === "success" && events.length ? (
+          {status === "success" && displayedEvents.length ? (
             <div className="genre-filters" aria-label="Filter results by genre">
               <button
                 className={genre === "all" ? "is-active" : ""}
@@ -457,7 +480,7 @@ export default function App() {
                 onClick={() => setGenre("all")}
                 aria-pressed={genre === "all"}
               >
-                All ({events.length})
+                All ({displayedEvents.length})
               </button>
               {genreOptions.map((option) => (
                 <button
@@ -476,8 +499,8 @@ export default function App() {
 
         {status === "success" && visibleEvents.length === 0 ? (
           <div className="empty-state">
-            <h2>{events.length ? "No events match that genre." : "No events found yet."}</h2>
-            <p>{events.length ? "Try another genre or choose All genres." : "Try a larger radius or broader date range. This result may also indicate a coverage gap."}</p>
+            <h2>{displayedEvents.length ? "No events match that genre." : "No events found yet."}</h2>
+            <p>{displayedEvents.length ? "Try another genre or choose All genres." : "Try a larger radius or broader date range. This result may also indicate a coverage gap."}</p>
           </div>
         ) : null}
 
