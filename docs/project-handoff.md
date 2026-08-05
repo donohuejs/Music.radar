@@ -88,6 +88,10 @@ poster/PDF assets.
 - Firebase Admin credentials, Ticketmaster keys, and ingestion secrets live in
   Vercel, never in Git.
 - Protected APIs accept only `INGEST_SECRET` or Vercel's `CRON_SECRET`.
+- `/admin` is a read-only operations dashboard backed by the protected
+  `/api/operations` endpoint. It surfaces source health, discovery coverage,
+  candidate review backlog, and ingestion failures without shipping secrets to
+  the client bundle.
 - Firestore client rules allow public reads only for intended public
   collections; server-side writes use Firebase Admin.
 - Source discovery rejects private/local addresses and bounds geographic cells,
@@ -106,15 +110,16 @@ poster/PDF assets.
    dates or time zones.
 4. Search quality must be tested in markets beyond Greenville, especially dense
    cities and travel destinations.
-5. There is no administrative review interface yet for candidate sources,
-   ambiguous artist matches, degraded sources, or coverage gaps.
+5. The first administrative dashboard is read-only. Candidate approval,
+   source refresh controls, and ambiguous artist-match review still require
+   operator APIs and audit logging.
 
 ## Recommended next priorities
 
-1. Build an admin/review queue for discovered sources and ambiguous genre
-   matches.
-2. Add coverage diagnostics that explain which sources and geographic cells
-   contributed to a search.
+1. Add audited actions to the admin review queue for source approval, disabling,
+   and bounded refreshes, followed by ambiguous genre-match review.
+2. Connect coverage diagnostics to individual searches so operators can see
+   which sources and geographic cells contributed to a result set.
 3. Generalize poster normalization using OCR coordinates, recurring weekday
    validation, and human approval before publication.
 4. Test several contrasting markets: a dense major city, a midsize city, a

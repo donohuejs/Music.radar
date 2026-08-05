@@ -111,6 +111,14 @@ operational fallback. The workflow queues discovery, processes bounded batches,
 and ingests registered sources using the repository secret without exposing it
 to the operator shell.
 
+## Operations dashboard
+
+Open `/admin` in the deployed app and enter `INGEST_SECRET` to view the
+read-only coverage dashboard. The secret is kept only in the page's memory and
+is sent as a bearer token to `/api/operations`. The dashboard summarizes source
+health, ingestion schedules, discovery cells, review candidates, and recent
+failed runs.
+
 ## Documentation
 
 - [Project handoff](docs/project-handoff.md)
