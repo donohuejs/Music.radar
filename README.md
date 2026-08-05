@@ -25,6 +25,8 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
 - PDF/image poster detection and OCR staging.
 - Conservative poster OCR draft extraction requiring explicit years, with all
   drafts held for human review before publication.
+- Protected poster review with editable event details, required IANA time-zone
+  validation, audited publication, stable event IDs, and draft dismissal.
 - Cached, conservative MusicBrainz genre enrichment.
 
 ## Local development

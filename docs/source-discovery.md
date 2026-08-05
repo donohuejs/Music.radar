@@ -72,6 +72,9 @@ an existing reusable parser, after which the workflow runs source ingestion.
 - After OCR, poster candidates move to `poster-review`. Explicit full dates may
   produce structured draft suggestions, but missing times and time zones remain
   visible validation errors and no draft is publishable without operator review.
+  The protected operations dashboard lets an operator correct the title, date,
+  local time, IANA time zone, venue, and category before publishing a stable
+  normalized event. Publication and dismissal are recorded in the audit log.
 - Existing source documents are preserved and remain administratively
   disableable.
 

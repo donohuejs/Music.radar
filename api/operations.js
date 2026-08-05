@@ -4,6 +4,7 @@ import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 import { recordIngestionRun, upsertEvents } from "../lib/server/eventStore.js";
 import { sourceDocument, updateSourceIngestionHealth } from "../lib/server/sourceRegistry.js";
 import { validateSource } from "../lib/server/sourceValidation.js";
+import { buildPublishedPosterEvent } from "../lib/server/posterPublication.js";
 
 function authorized(request) {
   const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "");
@@ -107,6 +108,70 @@ async function refreshSource(db, sourceId) {
   return { sourceId, imported, eventCount: sourceStatus.eventCount };
 }
 
+async function posterCandidate(db, candidateId) {
+  const reference = db.collection("sourceCandidates").doc(candidateId);
+  const snapshot = await reference.get();
+  if (!snapshot.exists) throw new Error("Poster candidate was not found.");
+  const candidate = { id: snapshot.id, ...snapshot.data() };
+  if (candidate.status !== "poster-review") throw new Error("Candidate is not awaiting poster review.");
+  return { reference, candidate };
+}
+
+async function publishPosterDraft(db, candidateId, input) {
+  const { reference, candidate } = await posterCandidate(db, candidateId);
+  const draftId = String(input?.draftId || "").trim();
+  const drafts = Array.isArray(candidate.posterDrafts) ? candidate.posterDrafts : [];
+  const draftIndex = drafts.findIndex((draft) => draft.id === draftId);
+  if (draftIndex < 0) throw new Error("Poster draft was not found.");
+  const event = buildPublishedPosterEvent(candidate, drafts[draftIndex], input || {});
+  const imported = await upsertEvents(db, [event]);
+  const reviewedAt = new Date().toISOString();
+  drafts[draftIndex] = {
+    ...drafts[draftIndex],
+    status: "published",
+    publishable: false,
+    publishedEventId: event.id,
+    reviewedAt,
+    reviewedValues: {
+      name: event.name,
+      startTime: event.startTime,
+      timeZone: input.timeZone,
+      venueName: event.venueName,
+      category: event.category,
+    },
+  };
+  await reference.set({
+    posterDrafts: drafts,
+    publishedEventIds: [...new Set([...(candidate.publishedEventIds || []), event.id])],
+    reviewedAt,
+  }, { merge: true });
+  return { candidateId, draftId, eventId: event.id, imported };
+}
+
+async function dismissPosterDraft(db, candidateId, input) {
+  const { reference, candidate } = await posterCandidate(db, candidateId);
+  const draftId = String(input?.draftId || "").trim();
+  const drafts = Array.isArray(candidate.posterDrafts) ? candidate.posterDrafts : [];
+  const draftIndex = drafts.findIndex((draft) => draft.id === draftId);
+  if (draftIndex < 0) throw new Error("Poster draft was not found.");
+  if (drafts[draftIndex].status === "published") throw new Error("Published poster drafts cannot be dismissed.");
+  drafts[draftIndex] = {
+    ...drafts[draftIndex],
+    status: "dismissed",
+    publishable: false,
+    reviewNote: String(input?.note || "Dismissed by operator").trim().slice(0, 500),
+    reviewedAt: new Date().toISOString(),
+  };
+  await reference.set({ posterDrafts: drafts, reviewedAt: new Date().toISOString() }, { merge: true });
+  return { candidateId, draftId };
+}
+
+function actionTargetType(action) {
+  if (action.startsWith("candidate")) return "candidate";
+  if (action.startsWith("poster")) return "poster-draft";
+  return "source";
+}
+
 export default async function handler(request, response) {
   if (!["GET", "POST"].includes(request.method)) {
     response.setHeader("Allow", "GET, POST");
@@ -128,10 +193,12 @@ export default async function handler(request, response) {
         else if (action === "candidate.reject") result = await rejectCandidate(db, targetId, request.body?.note);
         else if (action === "source.set-enabled") result = await setSourceEnabled(db, targetId, request.body?.enabled === true);
         else if (action === "source.refresh") result = await refreshSource(db, targetId);
+        else if (action === "poster.publish") result = await publishPosterDraft(db, targetId, request.body);
+        else if (action === "poster.dismiss") result = await dismissPosterDraft(db, targetId, request.body);
         else return response.status(400).json({ error: "Unsupported operation." });
         let auditRecorded = true;
         try {
-          await audit(db, action, action.startsWith("candidate") ? "candidate" : "source", targetId, "success", result);
+          await audit(db, action, actionTargetType(action), targetId, "success", result);
         } catch (auditError) {
           auditRecorded = false;
           console.error("Operational audit write failed:", auditError);
@@ -139,7 +206,7 @@ export default async function handler(request, response) {
         return response.status(200).json({ ok: true, auditRecorded, ...result });
       } catch (error) {
         try {
-          await audit(db, action || "unknown", action.startsWith("candidate") ? "candidate" : "source", targetId, "failed", { error: error.message });
+          await audit(db, action || "unknown", actionTargetType(action), targetId, "failed", { error: error.message });
         } catch (auditError) {
           console.error("Operational audit write failed:", auditError);
         }

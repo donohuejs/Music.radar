@@ -10,6 +10,61 @@ function Status({ tone = "neutral", children }) {
   return <span className={`ops-status ops-status--${tone}`}>{children}</span>;
 }
 
+function PosterDraftReview({ candidate, busyAction, runAction }) {
+  const [open, setOpen] = useState(false);
+  const [edits, setEdits] = useState({});
+  const drafts = candidate.posterDrafts || [];
+
+  function values(draft) {
+    return {
+      name: draft.name || "",
+      localDate: draft.localDate || "",
+      localTime: draft.localTime || "",
+      timeZone: candidate.timeZone || "",
+      venueName: candidate.name || "",
+      category: "music",
+      ...(edits[draft.id] || {}),
+    };
+  }
+
+  function update(draftId, field, value) {
+    setEdits((current) => ({
+      ...current,
+      [draftId]: { ...(current[draftId] || {}), [field]: value },
+    }));
+  }
+
+  return (
+    <div className="poster-review">
+      <button className="poster-review__toggle" type="button" onClick={() => setOpen((value) => !value)}>
+        {open ? "Hide poster drafts" : `Review ${drafts.length} poster draft${drafts.length === 1 ? "" : "s"}`}
+      </button>
+      {open ? <div className="poster-review__drafts">{drafts.map((draft) => {
+        const edit = values(draft);
+        const complete = edit.name && edit.localDate && edit.localTime && edit.timeZone && edit.venueName;
+        return <section className="poster-draft" key={draft.id}>
+          <div className="poster-draft__heading"><strong>{draft.name || "Untitled draft"}</strong><Status tone={draft.status === "published" ? "good" : draft.status === "dismissed" ? "neutral" : "warn"}>{draft.status}</Status></div>
+          <small>{draft.context}</small>
+          {draft.status === "needs-review" ? <>
+            <div className="poster-draft__fields">
+              <label>Event name<input value={edit.name} onChange={(event) => update(draft.id, "name", event.target.value)} /></label>
+              <label>Date<input type="date" value={edit.localDate} onChange={(event) => update(draft.id, "localDate", event.target.value)} /></label>
+              <label>Local time<input type="time" value={edit.localTime} onChange={(event) => update(draft.id, "localTime", event.target.value)} /></label>
+              <label>Time zone<input value={edit.timeZone} onChange={(event) => update(draft.id, "timeZone", event.target.value)} placeholder="America/Chicago" /></label>
+              <label>Venue<input value={edit.venueName} onChange={(event) => update(draft.id, "venueName", event.target.value)} /></label>
+              <label>Category<select value={edit.category} onChange={(event) => update(draft.id, "category", event.target.value)}><option value="music">Live music</option><option value="theater">Theater</option><option value="comedy">Comedy</option><option value="participatory">Participatory</option><option value="trivia">Trivia</option><option value="community">Community</option></select></label>
+            </div>
+            <div className="ops-actions">
+              <button disabled={Boolean(busyAction || !complete)} onClick={() => runAction("poster.publish", { candidateId: candidate.id, draftId: draft.id, ...edit }, `Publish ${edit.name || "this poster draft"} to Music Radar?`)}>Publish event</button>
+              <button disabled={Boolean(busyAction)} onClick={() => runAction("poster.dismiss", { candidateId: candidate.id, draftId: draft.id, note: "Dismissed from poster review" }, `Dismiss ${draft.name || "this poster draft"}?`)}>Dismiss draft</button>
+            </div>
+          </> : draft.reviewedValues ? <small>Published as {draft.reviewedValues.name} at {formatTime(draft.reviewedValues.startTime)}</small> : null}
+        </section>;
+      })}</div> : null}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [secret, setSecret] = useState("");
   const [diagnostics, setDiagnostics] = useState(null);
@@ -156,7 +211,7 @@ export default function AdminDashboard() {
               <div className="ops-list">{diagnostics.discoveryJobs.slice(0, 30).map((job) => <article key={job.id}><div><strong>{job.displayName || `${Number(job.latitude).toFixed(2)}, ${Number(job.longitude).toFixed(2)}`}</strong><small>{job.candidateCount || 0} candidates · {job.registeredSourceCount || 0} sources</small></div><Status tone={job.status === "failed" ? "bad" : job.status === "complete" ? "good" : "warn"}>{job.leaseExpired ? "lease expired" : job.status}</Status></article>)}</div>
             </section>
             <section className="ops-panel"><div className="ops-panel__heading"><div><p className="results__kicker">REVIEW QUEUE</p><h2>Source candidates</h2></div><span>{diagnostics.candidates.length} waiting</span></div>
-              <div className="ops-list">{filteredCandidates.slice(0, 30).map((candidate) => <article key={candidate.id}><div><a href={candidate.url} target="_blank" rel="noreferrer"><strong>{candidate.name || candidate.url}</strong></a><small>{candidate.discoveryLocation || "Unknown area"} · {candidate.parser || candidate.kind}</small>{candidate.status === "poster-review" ? <small>{candidate.posterDraftCount || 0} structured drafts awaiting human validation</small> : null}{candidate.duplicateSourceId ? <small className="ops-error">Duplicates {candidate.duplicateSourceId}</small> : null}</div><div className="ops-candidate-actions"><Status tone={candidate.status === "validated-candidate" ? "good" : "warn"}>{Math.round(Number(candidate.score || 0) * 100)}%</Status><button disabled={Boolean(busyAction || candidate.duplicateSourceId || !candidate.parser)} onClick={() => runAction("candidate.approve", { candidateId: candidate.id }, `Approve ${candidate.name || "this candidate"} as an ingestion source?`)}>Approve</button><button disabled={Boolean(busyAction)} onClick={() => runAction("candidate.reject", { candidateId: candidate.id, note: "Rejected from operations dashboard" }, `Reject ${candidate.name || "this candidate"}?`)}>Reject</button></div></article>)}</div>
+              <div className="ops-list">{filteredCandidates.slice(0, 30).map((candidate) => <article key={candidate.id}><div><a href={candidate.url} target="_blank" rel="noreferrer"><strong>{candidate.name || candidate.url}</strong></a><small>{candidate.discoveryLocation || "Unknown area"} · {candidate.parser || candidate.kind}</small>{candidate.status === "poster-review" ? <><small>{candidate.posterDraftCount || 0} structured drafts awaiting human validation</small><PosterDraftReview candidate={candidate} busyAction={busyAction} runAction={runAction} /></> : null}{candidate.duplicateSourceId ? <small className="ops-error">Duplicates {candidate.duplicateSourceId}</small> : null}</div><div className="ops-candidate-actions"><Status tone={candidate.status === "validated-candidate" ? "good" : "warn"}>{Math.round(Number(candidate.score || 0) * 100)}%</Status><button disabled={Boolean(busyAction || candidate.duplicateSourceId || !candidate.parser)} onClick={() => runAction("candidate.approve", { candidateId: candidate.id }, `Approve ${candidate.name || "this candidate"} as an ingestion source?`)}>Approve</button><button disabled={Boolean(busyAction)} onClick={() => runAction("candidate.reject", { candidateId: candidate.id, note: "Rejected from operations dashboard" }, `Reject ${candidate.name || "this candidate"}?`)}>Reject</button></div></article>)}</div>
             </section>
           </div>
 

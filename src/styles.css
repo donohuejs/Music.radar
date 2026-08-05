@@ -184,11 +184,20 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
 .ops-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .ops-list article { display: flex; justify-content: space-between; gap: 16px; align-items: start; padding: 15px 20px; border-bottom: 1px solid #242a2e; }
 .ops-list article:last-child { border-bottom: 0; }
+.ops-list article > div:first-child { min-width: 0; flex: 1; }
 .ops-actions, .ops-candidate-actions { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
 .ops-actions button, .ops-candidate-actions button { padding: 6px 9px; color: #d9e0e3; background: #252b2f; border: 1px solid #3b444a; border-radius: 7px; cursor: pointer; font-size: .72rem; font-weight: 800; }
 .ops-actions button:hover, .ops-candidate-actions button:hover { border-color: #b1ff47; }
 .ops-actions button:disabled, .ops-candidate-actions button:disabled { cursor: not-allowed; opacity: .45; }
 .ops-candidate-actions { justify-content: flex-end; }
+.poster-review { margin-top: 10px; }
+.poster-review__toggle { padding: 7px 10px; color: #111; background: #b1ff47; border: 0; border-radius: 7px; cursor: pointer; font-size: .74rem; font-weight: 900; }
+.poster-review__drafts { display: grid; gap: 10px; margin-top: 10px; }
+.poster-draft { padding: 13px; background: #0b0e10; border: 1px solid #343b40; border-radius: 9px; }
+.poster-draft__heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.poster-draft__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 12px 0; }
+.poster-draft__fields label { font-size: .66rem; }
+.poster-draft__fields input, .poster-draft__fields select { padding: 9px 10px; font-size: .8rem; }
 
 @media (max-width: 800px) {
   .event-grid { grid-template-columns: 1fr; }
@@ -199,6 +208,7 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
   .ops-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ops-columns { grid-template-columns: 1fr; }
   .ops-filters { grid-template-columns: 1fr; }
+  .poster-draft__fields { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .hero { padding: 36px 16px; }

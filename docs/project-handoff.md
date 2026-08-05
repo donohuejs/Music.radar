@@ -107,9 +107,9 @@ poster/PDF assets.
 
 1. Poster discovery now creates conservative review-only drafts when OCR
    contains explicit full dates. Arbitrary layouts, missing years, uncertain
-   titles, times, and time zones still require human validation before events
-   can be published; structured recurring-series data remains the verified
-   fallback.
+   titles, times, and time zones require human validation in `/admin` before
+   events can be published. Published drafts receive stable event IDs and an
+   audit record; structured recurring-series data remains the verified fallback.
 2. Many small/local artists are absent from MusicBrainz. Exact-name and
    high-confidence matching intentionally leaves uncertain artists unclassified.
 3. Discovery now recognizes linked JSON-LD event listings as durable sources,
