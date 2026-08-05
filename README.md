@@ -27,7 +27,8 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
   drafts held for human review before publication.
 - Protected poster review with editable event details, required IANA time-zone
   validation, audited publication, stable event IDs, and draft dismissal.
-- Cached, conservative MusicBrainz genre enrichment.
+- Cached, conservative, provider-neutral artist genre enrichment, currently
+  backed by MusicBrainz.
 
 ## Local development
 
@@ -70,6 +71,17 @@ GitHub Actions requires one repository secret:
 MusicBrainz read access requires no account credentials or API key. The app
 identifies itself through its server-side User-Agent and obeys the service's
 request limit.
+
+Optional genre corroboration providers use server-only credentials:
+
+- `DISCOGS_TOKEN` enables repeated-release genre/style evidence from Discogs.
+- `APPLE_MUSIC_DEVELOPER_TOKEN` enables Apple Music catalog artist genres.
+- `APPLE_MUSIC_STOREFRONT` selects the Apple catalog storefront and defaults to
+  `us`.
+
+If these values are absent, enrichment skips those providers and continues with
+MusicBrainz. When multiple providers match, a genre must be supported by at
+least two before it is written to an event.
 
 ## Operator commands
 

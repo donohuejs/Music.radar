@@ -24,13 +24,17 @@ Scheduled workers
   -> registered source ingestion -> normalized Firestore events
   -> discovery -> candidate calendars/pages/posters -> validated sources
   -> poster extraction -> stored OCR text -> review-only structured drafts
-  -> MusicBrainz enrichment -> cached artist genres -> updated events
+  -> provider-neutral enrichment -> MusicBrainz evidence -> cached artist genres -> updated events
 ```
 
 The React/Vite client is deployed by Vercel from GitHub `main`. Vercel API
 functions implement search and protected operational endpoints. Firebase Admin
 stores indexed events, registered sources, discovery state, ingestion records,
-and artist-genre cache records.
+and provider-neutral artist-genre cache records. Discogs and Apple Music are
+optional credentialed corroboration providers, while MusicBrainz remains the
+no-key fallback. The cache preserves every provider's evidence without changing
+event documents or the enrichment endpoint; when multiple providers match,
+only genres supported by at least two are published.
 
 Browser geolocation is reverse-geocoded server-side for a visible city/state/ZIP
 confirmation, while searches continue to use the precise browser coordinates.

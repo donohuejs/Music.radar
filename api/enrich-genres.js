@@ -1,9 +1,11 @@
 import { getAdminDb } from "../lib/server/firebaseAdmin.js";
 import {
   artistCacheId,
-  lookupArtistGenres,
+  enrichArtistGenres,
+  genreCacheIsFresh,
+  genreProviderConfiguration,
   normalizeArtistName,
-} from "../lib/server/musicBrainz.js";
+} from "../lib/server/artistGenreEnrichment.js";
 
 function authorized(request) {
   const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "");
@@ -13,18 +15,13 @@ function authorized(request) {
   );
 }
 
-function cacheIsFresh(cache) {
-  const checkedAt = new Date(cache?.checkedAt).getTime();
-  const maxAge = cache?.status === "matched" ? 180 : 30;
-  return Number.isFinite(checkedAt) && Date.now() - checkedAt < maxAge * 24 * 60 * 60 * 1000;
-}
-
 async function updateEvents(writer, documents, genres, enrichment) {
   for (const document of documents) {
     writer.set(document.ref, {
       genres,
       genreEnrichment: {
-        provider: "musicbrainz",
+        provider: enrichment.provider || "musicbrainz",
+        providerArtistId: enrichment.providerArtistId || enrichment.mbid || null,
         mbid: enrichment.mbid || null,
         confidence: enrichment.confidence || null,
         enrichedAt: new Date().toISOString(),
@@ -67,28 +64,41 @@ export default async function handler(request, response) {
     });
 
     const writer = db.bulkWriter();
+    const providerConfiguration = genreProviderConfiguration();
     let checked = 0;
     let processed = 0;
     let matched = 0;
     let updatedEvents = 0;
     let cacheHits = 0;
+    const errors = [];
 
     for (const group of groups.values()) {
       const cacheRef = db.collection("artistGenreCache").doc(artistCacheId(group.artistName));
       const cacheSnapshot = await cacheRef.get();
       let enrichment = cacheSnapshot.exists ? cacheSnapshot.data() : null;
-      if (cacheIsFresh(enrichment)) {
+      if (genreCacheIsFresh(enrichment, Date.now(), providerConfiguration)) {
         cacheHits += 1;
         if (enrichment.status !== "matched" || !enrichment.genres?.length) {
           continue;
         }
       } else {
         if (checked >= limit) break;
-        enrichment = await lookupArtistGenres(group.artistName);
         checked += 1;
+        try {
+          enrichment = await enrichArtistGenres(group.artistName);
+        } catch (error) {
+          errors.push({
+            artistName: group.artistName,
+            error: error.message,
+            retryable: Boolean(error.retryable),
+          });
+          await new Promise((resolve) => setTimeout(resolve, 1100));
+          continue;
+        }
         writer.set(cacheRef, {
           ...enrichment,
           queryArtistName: group.artistName,
+          providerConfiguration,
           checkedAt: new Date().toISOString(),
         }, { merge: true });
       }
@@ -113,6 +123,7 @@ export default async function handler(request, response) {
       cacheHits,
       matchedArtists: matched,
       updatedEvents,
+      errors,
     });
   } catch (error) {
     console.error(error);
