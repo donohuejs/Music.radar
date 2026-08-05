@@ -117,7 +117,10 @@ Open `/admin` in the deployed app and enter `INGEST_SECRET` to view the
 read-only coverage dashboard. The secret is kept only in the page's memory and
 is sent as a bearer token to `/api/operations`. The dashboard summarizes source
 health, ingestion schedules, discovery cells, review candidates, and recent
-failed runs.
+failed runs. Protected controls can approve or reject candidates, refresh one
+source, and enable or disable ingestion. Every attempted mutation is recorded
+in `operationalAudit`; approval is limited to reusable supported parsers and
+duplicate registered URLs are blocked.
 
 ## Documentation
 
