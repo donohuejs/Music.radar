@@ -58,3 +58,43 @@ test("keeps full poster OCR out of dashboard diagnostics", () => {
   assert.equal(diagnostics.candidates[0].extractedText, undefined);
   assert.equal(diagnostics.candidates[0].extractedTextPreview.length, 500);
 });
+
+test("summarizes fresh provider evidence and Discogs incremental lift", () => {
+  const now = Date.parse("2026-08-05T12:00:00.000Z");
+  const fresh = "2026-08-05T10:00:00.000Z";
+  const diagnostics = buildOperationalDiagnostics({ genreCaches: [
+    { id: "discogs-only", queryArtistName: "Local Artist", status: "matched", genres: ["Rock"], checkedAt: fresh, affectedEventCount: 2, evidence: [
+      { provider: "discogs", status: "matched", genres: ["Rock"], sourceUrl: "https://www.discogs.com/release/1" },
+      { provider: "appleMusic", status: "unavailable", genres: [] },
+      { provider: "musicbrainz", status: "no-match", genres: [] },
+    ] },
+    { id: "corroborated", queryArtistName: "Known Artist", status: "matched", genres: ["Electronic"], checkedAt: fresh, affectedEventCount: 1, evidence: [
+      { provider: "discogs", status: "matched", genres: ["Electronic"], sourceUrl: "https://www.discogs.com/release/2" },
+      { provider: "musicbrainz", status: "matched", genres: ["Electronic"] },
+    ] },
+    { id: "conflict", queryArtistName: "Conflicted Artist", status: "conflict", genres: [], checkedAt: fresh, evidence: [
+      { provider: "discogs", status: "matched", genres: ["Jazz"], sourceUrl: "https://www.discogs.com/release/3" },
+      { provider: "musicbrainz", status: "matched", genres: ["Rock"] },
+    ] },
+    { id: "stale", queryArtistName: "Stale Artist", status: "matched", genres: ["Pop"], checkedAt: "2026-08-05T05:00:00.000Z", evidence: [
+      { provider: "discogs", status: "matched", genres: ["Pop"], sourceUrl: "https://www.discogs.com/release/4" },
+    ] },
+    { id: "musicbrainz-only", queryArtistName: "MusicBrainz Artist", status: "matched", genres: ["Folk"], checkedAt: fresh, evidence: [
+      { provider: "discogs", status: "no-match", genres: [] },
+      { provider: "musicbrainz", status: "matched", genres: ["Folk"] },
+    ], errors: [{ provider: "appleMusic", message: "temporary", retryable: true }] },
+  ] }, now);
+
+  assert.equal(diagnostics.genreImpact.checkedArtists, 5);
+  assert.equal(diagnostics.genreImpact.publishedArtists, 3);
+  assert.equal(diagnostics.genreImpact.discogsMatches, 3);
+  assert.equal(diagnostics.genreImpact.discogsOnly, 1);
+  assert.equal(diagnostics.genreImpact.corroborated, 1);
+  assert.equal(diagnostics.genreImpact.conflicts, 1);
+  assert.equal(diagnostics.genreImpact.staleDiscogs, 1);
+  assert.equal(diagnostics.genreImpact.affectedEvents, 3);
+  assert.equal(diagnostics.genreImpact.providerErrors, 1);
+  assert.equal(diagnostics.genreImpact.incrementalCoveragePercent, 20);
+  assert.equal(diagnostics.genreImpact.recentArtists.find((artist) => artist.id === "stale").discogsUrl, null);
+  assert.deepEqual(diagnostics.genreImpact.recentArtists.find((artist) => artist.id === "stale").genres, []);
+});

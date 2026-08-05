@@ -93,6 +93,7 @@ export default async function handler(request, response) {
       let enrichment = cacheSnapshot.exists ? cacheSnapshot.data() : null;
       if (genreCacheIsFresh(enrichment, Date.now(), providerConfiguration)) {
         cacheHits += 1;
+        writer.set(cacheRef, { affectedEventCount: group.documents.length }, { merge: true });
         if (enrichment.status !== "matched" || !enrichment.genres?.length) {
           continue;
         }
@@ -117,6 +118,7 @@ export default async function handler(request, response) {
         writer.set(cacheRef, {
           ...enrichment,
           queryArtistName: group.artistName,
+          affectedEventCount: group.documents.length,
           providerConfiguration,
           checkedAt: new Date().toISOString(),
         }, { merge: true });

@@ -179,6 +179,9 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
 .ops-metric { padding: 18px; background: #13171a; border: 1px solid #2a3035; border-radius: 12px; }
 .ops-metric strong { display: block; color: #b1ff47; font-size: 2rem; }
 .ops-metric span { color: #aeb7bc; font-size: .76rem; font-weight: 800; text-transform: uppercase; }
+.ops-metrics--genre { padding: 0 20px; }
+.ops-panel__subheading { display: flex; justify-content: space-between; gap: 20px; padding: 18px 20px 8px; color: #aeb7bc; font-size: .8rem; }
+.ops-panel__subheading strong { color: #eef2f3; font-size: 1rem; }
 .ops-panel { margin-top: 18px; overflow: hidden; background: #111518; border: 1px solid #2a3035; border-radius: 14px; }
 .ops-panel__heading { display: flex; justify-content: space-between; gap: 20px; align-items: end; padding: 20px; border-bottom: 1px solid #2a3035; }
 .ops-panel__heading h2 { margin: 0; }

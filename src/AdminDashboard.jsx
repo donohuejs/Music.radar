@@ -10,6 +10,47 @@ function Status({ tone = "neutral", children }) {
   return <span className={`ops-status ops-status--${tone}`}>{children}</span>;
 }
 
+function GenreImpact({ impact, filter }) {
+  const query = filter.trim().toLowerCase();
+  const artists = (impact.recentArtists || []).filter((artist) =>
+    !query || [artist.artistName, artist.outcome, ...(artist.genres || []), ...(artist.providers || [])]
+      .some((value) => String(value || "").toLowerCase().includes(query)),
+  );
+  const providerLabel = (provider) => provider === "appleMusic"
+    ? "Apple Music"
+    : provider === "musicbrainz" ? "MusicBrainz" : "Discogs";
+
+  return (
+    <section className="ops-panel">
+      <div className="ops-panel__heading">
+        <div><p className="results__kicker">GENRE ENRICHMENT</p><h2>Provider impact</h2></div>
+        <span>{impact.incrementalCoveragePercent}% Discogs incremental coverage</span>
+      </div>
+      <section className="ops-metrics ops-metrics--genre" aria-label="Genre provider summary">
+        {[
+          ["Checked artists", impact.checkedArtists],
+          ["Published genres", impact.publishedArtists],
+          ["Discogs matches", impact.discogsMatches],
+          ["Discogs-only lift", impact.discogsOnly],
+          ["Corroborated", impact.corroborated],
+          ["Conflicts", impact.conflicts],
+          ["Affected events", impact.affectedEvents],
+          ["Provider errors", impact.providerErrors],
+        ].map(([label, value]) => (
+          <article className="ops-metric" key={label}><strong>{value}</strong><span>{label}</span></article>
+        ))}
+      </section>
+      <div className="ops-table-wrap"><table><thead><tr><th>Provider</th><th>Matched</th><th>No genre/match</th><th>Unavailable</th><th>Errors</th></tr></thead>
+        <tbody>{(impact.providers || []).map((provider) => <tr key={provider.provider}><td><strong>{providerLabel(provider.provider)}</strong></td><td>{provider.matched}</td><td>{provider.noMatch}</td><td>{provider.unavailable}</td><td>{provider.errors ? <Status tone="bad">{provider.errors}</Status> : 0}</td></tr>)}</tbody>
+      </table></div>
+      <div className="ops-panel__subheading"><strong>Recent artist outcomes</strong><span>{impact.staleDiscogs || 0} stale Discogs records excluded</span></div>
+      <div className="ops-table-wrap"><table><thead><tr><th>Artist</th><th>Outcome</th><th>Published genres</th><th>Matching providers</th><th>Events</th><th>Checked</th></tr></thead>
+        <tbody>{artists.slice(0, 100).map((artist) => <tr key={artist.id}><td>{artist.discogsUrl ? <a href={artist.discogsUrl} target="_blank" rel="noreferrer"><strong>{artist.artistName}</strong></a> : <strong>{artist.artistName}</strong>}</td><td><Status tone={["discogs-only", "corroborated"].includes(artist.outcome) ? "good" : artist.outcome === "conflict" ? "bad" : artist.outcome === "stale" ? "warn" : "neutral"}>{artist.outcome.replaceAll("-", " ")}</Status></td><td>{artist.genres.join(", ") || "Genre not listed"}</td><td>{artist.providers.map(providerLabel).join(", ") || "None"}</td><td>{artist.affectedEventCount}</td><td>{formatTime(artist.checkedAt)}</td></tr>)}</tbody>
+      </table></div>
+    </section>
+  );
+}
+
 function PosterDraftReview({ candidate, busyAction, runAction }) {
   const [open, setOpen] = useState(false);
   const [edits, setEdits] = useState({});
@@ -186,6 +227,8 @@ export default function AdminDashboard() {
               <article className="ops-metric" key={label}><strong>{value}</strong><span>{label}</span></article>
             ))}
           </section>
+
+          <GenreImpact impact={diagnostics.genreImpact} filter={filter} />
 
           <section className="ops-panel">
             <div className="ops-panel__heading"><div><p className="results__kicker">SEARCH COVERAGE</p><h2>Geographic blind spots</h2></div><span>{diagnostics.summary.trackedSearches} recent searches</span></div>

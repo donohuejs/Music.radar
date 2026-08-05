@@ -214,13 +214,14 @@ export default async function handler(request, response) {
       }
     }
 
-    const [sources, jobs, candidates, runs, audits, searches] = await Promise.all([
+    const [sources, jobs, candidates, runs, audits, searches, genreCaches] = await Promise.all([
       db.collection("sources").limit(500).get(),
       db.collection("discoveryJobs").limit(500).get(),
       db.collection("sourceCandidates").limit(500).get(),
       db.collection("ingestionRuns").orderBy("completedAt", "desc").limit(100).get(),
       db.collection("operationalAudit").orderBy("createdAt", "desc").limit(100).get(),
       db.collection("searchCoverage").orderBy("searchedAt", "desc").limit(200).get(),
+      db.collection("artistGenreCache").limit(1000).get(),
     ]);
     return response.status(200).json(
       buildOperationalDiagnostics({
@@ -230,6 +231,7 @@ export default async function handler(request, response) {
         runs: documents(runs),
         audits: documents(audits),
         searches: documents(searches),
+        genreCaches: documents(genreCaches),
       }),
     );
   } catch (error) {

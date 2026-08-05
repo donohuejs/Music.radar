@@ -103,6 +103,10 @@ poster/PDF assets.
   backlog, and ingestion failures without shipping secrets to the client
   bundle. Candidate approval/rejection and source refresh/enable controls are
   server-validated and recorded in `operationalAudit`.
+- Genre-provider impact is aggregated from `artistGenreCache` in `/admin`,
+  including Discogs-only lift, corroboration, conflicts, errors, affected events,
+  and recent artist outcomes. Stale Discogs evidence is excluded from returned
+  detail rows.
 - Indexed searches write coarse `searchCoverage` diagnostics with no user
   identifier or precise coordinates. Records carry a 30-day retention marker
   and new searches opportunistically remove expired records. The dashboard aggregates these into

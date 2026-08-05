@@ -155,6 +155,11 @@ delete expired records. The operations dashboard uses
 these records to flag searches with no results, Ticketmaster-only results, or
 completed discovery cells that produced no registered local source.
 
+The dashboard also summarizes cached genre-provider impact: provider matches,
+Discogs-only incremental coverage, corroboration, conflicts, errors, affected
+events, and recent artist outcomes. Discogs evidence older than six hours is
+excluded from dashboard details and supporting links.
+
 ## Documentation
 
 - [Project handoff](docs/project-handoff.md)
