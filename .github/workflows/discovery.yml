@@ -120,14 +120,18 @@ jobs:
       - name: Ingest registered sources
         env:
           MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
+          SOURCE_INGEST_FORCE: ${{ inputs.force || false }}
         run: |
           for batch in {1..20}; do
+            payload="$(jq -n \
+              --argjson force "$SOURCE_INGEST_FORCE" \
+              '{limit:4, force:$force}')"
             response="$(curl --fail-with-body --silent --show-error \
               --max-time 58 \
               --request POST \
               --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
               --header "Content-Type: application/json" \
-              --data '{"limit":4}' \
+              --data "$payload" \
               https://music-radar-one.vercel.app/api/ingest-sources)"
             echo "$response"
             if [[ "$(jq -r '.cycleComplete // false' <<< "$response")" == "true" ]]; then
