@@ -14,6 +14,8 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
   custom-range searches.
 - Separate categories for live music, participatory music, trivia, theater, and
   comedy.
+- Conservative removal of explicit venue-hours and no-performance placeholders
+  so the live-music inventory remains focused on artist performances.
 - Result-driven genre filters with honest unknown-genre handling.
 - Category-aware, paginated Ticketmaster collection and registered local-source
   ingestion.
@@ -142,9 +144,13 @@ read-only coverage dashboard. The secret is kept only in the page's memory and
 is sent as a bearer token to `/api/operations`. The dashboard summarizes source
 health, ingestion schedules, discovery cells, review candidates, and recent
 failed runs. Protected controls can approve or reject candidates, refresh one
-source, and enable or disable ingestion. Every attempted mutation is recorded
+source, enable or disable ingestion, and hide an event by its exact source or
+ticket URL. Every attempted mutation is recorded
 in `operationalAudit`; approval is limited to reusable supported parsers and
-duplicate registered URLs are blocked.
+duplicate registered URLs are blocked. Rejections store a structured reason and
+survive rediscovery. Single-event JSON-LD pages cannot be approved as reusable
+sources. Active URL suppressions are applied during both ingestion and search;
+they can be reversed from the dashboard.
 
 Successful indexed searches also write a coarse coverage diagnostic with a
 30-day retention marker to

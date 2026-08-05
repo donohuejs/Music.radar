@@ -56,6 +56,11 @@ Important normalized fields include:
 - `genres`, using `Genre not listed` instead of invented metadata
 - source attribution, confidence, and verification timestamps
 
+Normalization rejects conservative, explicit no-performance placeholders such
+as venue-open/no-show notices before ingestion and again during merged search.
+This keeps every category focused on actual events while leaving ambiguous
+titles untouched.
+
 Search-time deduplication uses normalized artist, exact start minute, and postal
 code or canonical venue signals. Merged results retain provider IDs and ticket
 URLs for diagnostics.
@@ -100,9 +105,13 @@ poster/PDF assets.
 - Protected APIs accept only `INGEST_SECRET` or Vercel's `CRON_SECRET`.
 - `/admin` is an operations dashboard backed by the protected `/api/operations`
   endpoint. It surfaces source health, discovery coverage, candidate review
-  backlog, and ingestion failures without shipping secrets to the client
-  bundle. Candidate approval/rejection and source refresh/enable controls are
-  server-validated and recorded in `operationalAudit`.
+  backlog, event suppressions, and ingestion failures without shipping secrets
+  to the client bundle. Candidate approval/rejection, exact-URL event
+  suppression, and source refresh/enable controls are server-validated and
+  recorded in `operationalAudit`. Candidate rejection reasons persist across
+  rediscovery; discovered single-event JSON-LD pages are explicitly
+  non-reusable and cannot be approved as sources. Active suppressions are
+  enforced in both indexed ingestion and merged live search results.
 - Genre-provider impact is aggregated from `artistGenreCache` in `/admin`,
   including Discogs-only lift, corroboration, conflicts, errors, affected events,
   and recent artist outcomes. Stale Discogs evidence is excluded from returned

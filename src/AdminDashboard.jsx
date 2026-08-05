@@ -106,6 +106,22 @@ function PosterDraftReview({ candidate, busyAction, runAction }) {
   );
 }
 
+function CandidateActions({ candidate, busyAction, runAction }) {
+  const oneTimeEvent = candidate.sourceScope === "single-event" || candidate.reusableSource === false;
+  const [reason, setReason] = useState(oneTimeEvent ? "one-time-event" : "not-reusable-source");
+  const [suppressEvent, setSuppressEvent] = useState(oneTimeEvent);
+  return <div className="ops-candidate-actions">
+    <Status tone={candidate.status === "validated-candidate" ? "good" : "warn"}>{Math.round(Number(candidate.score || 0) * 100)}%</Status>
+    {oneTimeEvent ? <small className="ops-error">One-time event page; cannot become a source</small> : null}
+    <button disabled={Boolean(busyAction || candidate.duplicateSourceId || !candidate.parser || oneTimeEvent)} onClick={() => runAction("candidate.approve", { candidateId: candidate.id }, `Approve ${candidate.name || "this candidate"} as an ingestion source?`)}>Approve</button>
+    <select aria-label={`Rejection reason for ${candidate.name || "candidate"}`} value={reason} onChange={(event) => setReason(event.target.value)}>
+      <option value="not-reusable-source">Not a reusable source</option><option value="one-time-event">One-time event</option><option value="wrong-category">Wrong category</option><option value="duplicate">Duplicate</option><option value="irrelevant">Irrelevant</option><option value="other">Other</option>
+    </select>
+    <label><input type="checkbox" checked={suppressEvent} onChange={(event) => setSuppressEvent(event.target.checked)} /> Hide matching event URL</label>
+    <button disabled={Boolean(busyAction)} onClick={() => runAction("candidate.reject", { candidateId: candidate.id, reason, suppressEvent, note: "Rejected from operations dashboard" }, `Reject ${candidate.name || "this candidate"}${suppressEvent ? " and hide events using this exact URL" : ""}?`)}>Reject</button>
+  </div>;
+}
+
 export default function AdminDashboard() {
   const [secret, setSecret] = useState("");
   const [diagnostics, setDiagnostics] = useState(null);
@@ -114,6 +130,8 @@ export default function AdminDashboard() {
   const [filter, setFilter] = useState("");
   const [candidateStatus, setCandidateStatus] = useState("all");
   const [busyAction, setBusyAction] = useState("");
+  const [suppressionUrl, setSuppressionUrl] = useState("");
+  const [suppressionReason, setSuppressionReason] = useState("wrong-category");
 
   async function loadDiagnostics(event) {
     event?.preventDefault();
@@ -137,7 +155,7 @@ export default function AdminDashboard() {
 
   async function runAction(action, payload, confirmation) {
     if (confirmation && !window.confirm(confirmation)) return;
-    const actionKey = `${action}:${payload.candidateId || payload.sourceId}`;
+    const actionKey = `${action}:${payload.candidateId || payload.sourceId || payload.suppressionId || payload.url}`;
     setBusyAction(actionKey);
     setMessage("");
     try {
@@ -231,6 +249,16 @@ export default function AdminDashboard() {
           <GenreImpact impact={diagnostics.genreImpact} filter={filter} />
 
           <section className="ops-panel">
+            <div className="ops-panel__heading"><div><p className="results__kicker">EVENT MODERATION</p><h2>Hidden events</h2></div><span>{(diagnostics.eventSuppressions || []).filter((item) => item.active !== false).length} active</span></div>
+            <div className="ops-filters">
+              <label>Event URL<input type="url" value={suppressionUrl} onChange={(event) => setSuppressionUrl(event.target.value)} placeholder="https://venue.example/event/..." /></label>
+              <label>Reason<select value={suppressionReason} onChange={(event) => setSuppressionReason(event.target.value)}><option value="wrong-category">Wrong category</option><option value="one-time-event">One-time event</option><option value="duplicate">Duplicate</option><option value="irrelevant">Irrelevant</option><option value="other">Other</option></select></label>
+              <button disabled={Boolean(busyAction || !suppressionUrl)} onClick={async () => { await runAction("event.suppress", { url: suppressionUrl, reason: suppressionReason, note: "Hidden from operations dashboard" }, "Hide every event matching this exact URL?"); setSuppressionUrl(""); }}>Hide event</button>
+            </div>
+            <div className="ops-list">{(diagnostics.eventSuppressions || []).filter((item) => item.active !== false).slice(0, 30).map((item) => <article key={item.id}><div><a href={item.url} target="_blank" rel="noreferrer"><strong>{item.url}</strong></a><small>{String(item.reason || "other").replaceAll("-", " ")} · {formatTime(item.updatedAt)}</small></div><button disabled={Boolean(busyAction)} onClick={() => runAction("event.unsuppress", { suppressionId: item.id }, "Allow this event URL again?")}>Allow again</button></article>)}</div>
+          </section>
+
+          <section className="ops-panel">
             <div className="ops-panel__heading"><div><p className="results__kicker">SEARCH COVERAGE</p><h2>Geographic blind spots</h2></div><span>{diagnostics.summary.trackedSearches} recent searches</span></div>
             <div className="ops-table-wrap"><table><thead><tr><th>Area</th><th>Searches</th><th>Warnings</th><th>Commercial only</th><th>No results</th><th>Weak cells</th><th>Contributors</th><th>Last searched</th></tr></thead>
               <tbody>{diagnostics.coverageAreas.filter((area) => !filter.trim() || area.displayName.toLowerCase().includes(filter.trim().toLowerCase())).map((area) => <tr key={area.displayName}><td><strong>{area.displayName}</strong></td><td>{area.searchCount}</td><td>{area.blindSpotSearches ? <Status tone="warn">{area.blindSpotSearches}</Status> : <Status tone="good">0</Status>}</td><td>{area.commercialOnlySearches}</td><td>{area.emptySearches}</td><td>{area.weakDiscoveryCellCount}</td><td>{area.sourceContributors.join(", ") || "None"}</td><td>{formatTime(area.lastSearchedAt)}</td></tr>)}</tbody>
@@ -254,7 +282,7 @@ export default function AdminDashboard() {
               <div className="ops-list">{diagnostics.discoveryJobs.slice(0, 30).map((job) => <article key={job.id}><div><strong>{job.displayName || `${Number(job.latitude).toFixed(2)}, ${Number(job.longitude).toFixed(2)}`}</strong><small>{job.candidateCount || 0} candidates · {job.registeredSourceCount || 0} sources</small></div><Status tone={job.status === "failed" ? "bad" : job.status === "complete" ? "good" : "warn"}>{job.leaseExpired ? "lease expired" : job.status}</Status></article>)}</div>
             </section>
             <section className="ops-panel"><div className="ops-panel__heading"><div><p className="results__kicker">REVIEW QUEUE</p><h2>Source candidates</h2></div><span>{diagnostics.candidates.length} waiting</span></div>
-              <div className="ops-list">{filteredCandidates.slice(0, 30).map((candidate) => <article key={candidate.id}><div><a href={candidate.url} target="_blank" rel="noreferrer"><strong>{candidate.name || candidate.url}</strong></a><small>{candidate.discoveryLocation || "Unknown area"} · {candidate.parser || candidate.kind}</small>{candidate.status === "poster-review" ? <><small>{candidate.posterDraftCount || 0} structured drafts awaiting human validation</small><PosterDraftReview candidate={candidate} busyAction={busyAction} runAction={runAction} /></> : null}{candidate.duplicateSourceId ? <small className="ops-error">Duplicates {candidate.duplicateSourceId}</small> : null}</div><div className="ops-candidate-actions"><Status tone={candidate.status === "validated-candidate" ? "good" : "warn"}>{Math.round(Number(candidate.score || 0) * 100)}%</Status><button disabled={Boolean(busyAction || candidate.duplicateSourceId || !candidate.parser)} onClick={() => runAction("candidate.approve", { candidateId: candidate.id }, `Approve ${candidate.name || "this candidate"} as an ingestion source?`)}>Approve</button><button disabled={Boolean(busyAction)} onClick={() => runAction("candidate.reject", { candidateId: candidate.id, note: "Rejected from operations dashboard" }, `Reject ${candidate.name || "this candidate"}?`)}>Reject</button></div></article>)}</div>
+              <div className="ops-list">{filteredCandidates.slice(0, 30).map((candidate) => <article key={candidate.id}><div><a href={candidate.url} target="_blank" rel="noreferrer"><strong>{candidate.name || candidate.url}</strong></a><small>{candidate.discoveryLocation || "Unknown area"} · {candidate.parser || candidate.kind}</small>{candidate.status === "poster-review" ? <><small>{candidate.posterDraftCount || 0} structured drafts awaiting human validation</small><PosterDraftReview candidate={candidate} busyAction={busyAction} runAction={runAction} /></> : null}{candidate.duplicateSourceId ? <small className="ops-error">Duplicates {candidate.duplicateSourceId}</small> : null}</div><CandidateActions candidate={candidate} busyAction={busyAction} runAction={runAction} /></article>)}</div>
             </section>
           </div>
 

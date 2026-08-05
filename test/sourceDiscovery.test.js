@@ -58,6 +58,12 @@ test("detects embedded calendars, JSON-LD events, feeds, and posters", () => {
     ).parser,
     "json-ld",
   );
+  const detail = detectPageSource(
+    '<script type="application/ld+json">{"@type":"Event"}</script>',
+    "https://venue.example/events/one-show",
+  );
+  assert.equal(detail.sourceScope, "single-event");
+  assert.equal(detail.reusableSource, false);
   assert.equal(
     detectPageSource(
       '<a href="/music.ics">Calendar</a>',

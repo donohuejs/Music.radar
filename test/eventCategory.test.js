@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { inferEventCategory } from "../lib/server/eventCategory.js";
+import { inferEventCategory, isNonPerformanceListing } from "../lib/server/eventCategory.js";
 
 test("separates participatory listings from a source's broad music category", () => {
   assert.equal(
@@ -38,4 +38,11 @@ test("lets specific theater and comedy evidence override a broad source category
     inferEventCategory({ name: "Friday Stand-Up Comedy", category: "music" }),
     "comedy",
   );
+});
+
+test("excludes explicit venue-hours and no-performance placeholders", () => {
+  assert.equal(isNonPerformanceListing({ name: "Radio and Chill" }), true);
+  assert.equal(isNonPerformanceListing({ name: "Bar Open — No Show Tonight" }), true);
+  assert.equal(isNonPerformanceListing({ name: "Chillwave Radio with The Performers" }), false);
+  assert.equal(isNonPerformanceListing({ name: "Radiohead Tribute Night" }), false);
 });

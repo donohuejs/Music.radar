@@ -1,4 +1,5 @@
 import { getAdminDb } from "../lib/server/firebaseAdmin.js";
+import { filterSuppressedEvents, loadEventSuppressions } from "../lib/server/eventSuppressions.js";
 import {
   attachDistanceAndFilter,
   mergeAndDedupe,
@@ -164,11 +165,12 @@ export default async function handler(request, response) {
           }),
     ]);
 
-    const merged = mergeAndDedupe([
+    const suppressions = await loadEventSuppressions(getAdminDb());
+    const merged = filterSuppressedEvents(mergeAndDedupe([
       ...firestore.value,
       ...localVenues.value.events,
       ...ticketmaster.value,
-    ]);
+    ]), suppressions);
 
     const filtered = attachDistanceAndFilter(merged, lat, lng, radius)
       .filter((event) => {

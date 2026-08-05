@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-
-import { validateSource } from "../lib/server/sourceValidation.js";
+import { isReusableSourceCandidate, validateSource } from "../lib/server/sourceValidation.js";
 
 test("accepts a reviewed source only when it uses a reusable parser", () => {
   const source = validateSource({
@@ -18,4 +17,9 @@ test("accepts a reviewed source only when it uses a reusable parser", () => {
     () => validateSource({ ...source, parser: "custom-one-off" }),
     /Unsupported source parser/,
   );
+});
+
+test("blocks single-event pages from source approval", () => {
+  assert.equal(isReusableSourceCandidate({ parser: "json-ld", sourceScope: "single-event" }), false);
+  assert.equal(isReusableSourceCandidate({ parser: "json-ld-listing", sourceScope: "listing" }), true);
 });
