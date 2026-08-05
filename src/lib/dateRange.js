@@ -36,8 +36,9 @@ export function getDateRange(option, customStart, customEnd) {
     end.setDate(start.getDate() + 2);
     end.setHours(23, 59, 59, 999);
   } else {
+    const days = option === "fortnight" ? 14 : option === "month" ? 30 : 7;
     start.setHours(0, 0, 0, 0);
-    end.setDate(end.getDate() + 7);
+    end.setDate(end.getDate() + days);
     end.setHours(23, 59, 59, 999);
   }
 

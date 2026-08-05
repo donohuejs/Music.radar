@@ -21,3 +21,14 @@ test("rejects an inverted custom date range", () => {
     /valid custom date range/i,
   );
 });
+
+test("builds next 14 and next 30 day ranges", () => {
+  for (const [option, days] of [["fortnight", 14], ["month", 30]]) {
+    const range = getDateRange(option);
+    const start = new Date(range.startDate);
+    const end = new Date(range.endDate);
+    assert.equal(Math.round((end - start) / 86_400_000), days + 1);
+    assert.equal(start.getHours(), 0);
+    assert.equal(end.getHours(), 23);
+  }
+});

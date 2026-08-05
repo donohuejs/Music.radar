@@ -10,7 +10,8 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
 
 - Search by typed location or browser geolocation with a reverse-geocoded
   city/state/ZIP confirmation.
-- Tonight, tomorrow, weekend, next-seven-days, and visual custom-range searches.
+- Tonight, tomorrow, weekend, next-7-day, next-14-day, next-30-day, and visual
+  custom-range searches.
 - Separate categories for live music, participatory music, trivia, theater, and
   comedy.
 - Result-driven genre filters with honest unknown-genre handling.

@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { getDateRange } from "./lib/dateRange.js";
 import { calendarDays, parseLocalDate, toLocalDateValue } from "./lib/calendar.js";
+import { confidenceExplanation, scanButtonLabel } from "./lib/eventDisplay.js";
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100];
 const DATE_OPTIONS = [
@@ -8,6 +9,8 @@ const DATE_OPTIONS = [
   { label: "Tomorrow", value: "tomorrow" },
   { label: "This weekend", value: "weekend" },
   { label: "Next 7 days", value: "week" },
+  { label: "Next 14 days", value: "fortnight" },
+  { label: "Next 30 days", value: "month" },
   { label: "Custom dates", value: "custom" },
 ];
 const CATEGORY_OPTIONS = [
@@ -171,6 +174,8 @@ function CalendarPicker({ mode, start, end, onStartChange, onEndChange }) {
 }
 
 function EventCard({ event }) {
+  const confidenceId = useId();
+
   return (
     <article className="event-card">
       <div className="event-card__image-wrap">
@@ -197,7 +202,16 @@ function EventCard({ event }) {
         <div className="event-card__meta">
           <span>{event.sourceName || "Event source"}</span>
           {event.category ? <span>{event.category.replace("_", " ")}</span> : null}
-          {event.confidence ? <span>{Math.round(event.confidence * 100)}% confidence</span> : null}
+          {event.confidence ? (
+            <span className="confidence">
+              <button type="button" aria-describedby={confidenceId}>
+                {Math.round(event.confidence * 100)}% confidence
+              </button>
+              <span className="confidence__tooltip" id={confidenceId} role="tooltip">
+                {confidenceExplanation(event)}
+              </span>
+            </span>
+          ) : null}
           {(event.genres || []).map((genre) => (
             <span className="genre-tag" key={genre}>{genre}</span>
           ))}
@@ -423,7 +437,7 @@ export default function App() {
             ) : null}
 
             <button className="button button--primary" type="submit" disabled={status === "loading"}>
-              {status === "loading" ? "Scanning…" : "Scan for live music"}
+              {status === "loading" ? "Scanning…" : scanButtonLabel(category)}
             </button>
           </form>
         </div>
@@ -457,9 +471,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-          ) : (
-            <p className="coverage-note">Sources are shown on every listing so gaps stay visible.</p>
-          )}
+          ) : null}
         </div>
 
         {status === "success" && visibleEvents.length === 0 ? (
