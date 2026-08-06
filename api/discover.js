@@ -139,6 +139,7 @@ async function runJobs(db, limit, deadline) {
         maxOrganizations: 2,
         deadline,
         organizations: job.organizations,
+        seedOrganizations: job.discoverySeedOrganizations,
       });
       const savedCandidates = await saveSourceCandidates(db, batch.candidates, job);
       const registeredSources = await registerAutomaticSources(db, savedCandidates);
@@ -151,6 +152,7 @@ async function runJobs(db, limit, deadline) {
         organizationOffset: batch.nextOffset,
         organizationCount: batch.organizationCount,
         organizations: batch.complete ? [] : batch.organizations,
+        discoverySeedOrganizations: batch.complete ? [] : job.discoverySeedOrganizations || [],
         candidateCount,
         registeredSourceCount,
         priority: batch.complete ? 0 : Number(job.priority || 0),
@@ -249,6 +251,44 @@ export default async function handler(request, response) {
       { force: request.body?.force === true },
     );
     return response.status(200).json({ ok: true, ...coverage });
+  }
+
+  if (action === "seed-locations") {
+    const jobs = await loadPendingDiscoveryJobs(db, Math.min(Number(request.body?.limit) || 3, 5));
+    return response.status(200).json({
+      ok: true,
+      jobs: jobs.filter((job) => job.status === "pending").map((job) => ({
+        id: job.id,
+        latitude: job.latitude,
+        longitude: job.longitude,
+        radiusMiles: job.radiusMiles || 15,
+      })),
+    });
+  }
+
+  if (action === "organization-seeds") {
+    const jobId = String(request.body?.jobId || "").trim();
+    const reference = db.collection("discoveryJobs").doc(jobId);
+    const snapshot = jobId ? await reference.get() : null;
+    if (!snapshot?.exists) return response.status(404).json({ error: "Discovery job was not found." });
+    const incoming = (Array.isArray(request.body?.organizations) ? request.body.organizations : [])
+      .slice(0, 100)
+      .map((organization) => ({
+        name: String(organization?.name || "").trim().slice(0, 200),
+        url: String(organization?.url || "").trim().slice(0, 2000),
+        latitude: Number(organization?.latitude),
+        longitude: Number(organization?.longitude),
+        organizationType: "venue",
+        discoveryMethod: "overture-places",
+        placeCategory: String(organization?.placeCategory || "").slice(0, 120),
+        priority: Math.min(Math.max(Number(organization?.priority) || 3, 1), 6),
+      }))
+      .filter((organization) => organization.name && /^https?:\/\//i.test(organization.url) && Number.isFinite(organization.latitude) && Number.isFinite(organization.longitude));
+    const existing = snapshot.data().discoverySeedOrganizations || [];
+    const merged = new Map([...existing, ...incoming].map((organization) => [String(organization.url).replace(/\/$/, "").toLowerCase(), organization]));
+    const organizations = [...merged.values()].slice(0, 100);
+    await reference.set({ discoverySeedOrganizations: organizations, updatedAt: new Date().toISOString() }, { merge: true });
+    return response.status(200).json({ ok: true, jobId, accepted: incoming.length, seedCount: organizations.length });
   }
 
   const results = await runJobs(

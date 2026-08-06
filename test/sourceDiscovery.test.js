@@ -5,9 +5,19 @@ import { readFileSync } from "node:fs";
 import {
   detectPageSource,
   eventDetailLinks,
+  mergeOrganizationSeeds,
   overpassQuery,
   parseOverpassCandidates,
 } from "../lib/server/sourceDiscovery.js";
+
+test("merges open venue seeds by website without city-specific configuration", () => {
+  const organizations = mergeOrganizationSeeds(
+    [{ name: "OSM venue", url: "https://venue.example/", priority: 2 }],
+    [{ name: "Overture venue", url: "https://venue.example", priority: 5, discoveryMethod: "overture-places" }],
+  );
+  assert.equal(organizations.length, 1);
+  assert.equal(organizations[0].name, "Overture venue");
+});
 
 test("builds a bounded Overpass query for likely music organizations", () => {
   const query = overpassQuery({ latitude: 34.85, longitude: -82.4, radiusMiles: 25 });
@@ -97,6 +107,14 @@ test("detects a reusable linked-event listing without treating it as a poster", 
   assert.equal(detection.parser, "json-ld-listing");
   assert.equal(detection.linkedEventCount, 3);
   assert.equal(eventDetailLinks(html, "https://venue.example/shows").length, 3);
+});
+
+test("prefers a reusable listing over single-event JSON-LD embedded on that page", () => {
+  const links = ["one", "two", "three"].map((slug) => `<a href="/events/${slug}">${slug}</a>`).join("");
+  const html = `${links}<script type="application/ld+json">{"@type":"Event"}</script>`;
+  const detection = detectPageSource(html, "https://venue.example/events");
+  assert.equal(detection.parser, "json-ld-listing");
+  assert.equal(detection.reusableSource, true);
 });
 
 test("recognizes Metro-style WordPress event detail links", () => {

@@ -70,6 +70,11 @@ GitHub Actions requires one repository secret:
 
 - `MUSIC_RADAR_INGEST_SECRET` — the same value as Vercel's `INGEST_SECRET`.
 
+The scheduled discovery workflow supplements OpenStreetMap with the free
+Overture Places dataset. It resolves the latest release automatically, queries
+only queued geographic cells, and requires no places API key. Returned websites
+remain untrusted leads until a reusable event calendar is validated.
+
 MusicBrainz read access requires no account credentials or API key. The app
 identifies itself through its server-side User-Agent and obeys the service's
 request limit.

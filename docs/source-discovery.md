@@ -13,7 +13,11 @@ stored for the area.
 2. The protected discovery worker queries OpenStreetMap for nearby government
    organizations, breweries, bars, pubs, music and concert venues, cultural
    venues, parks, and other likely event hosts that publish an official
-   `website` or `contact:website`.
+   `website` or `contact:website`. Before inspection, the scheduled GitHub
+   workflow also queries the free Overture Places release for the queued cells,
+   selecting music, performing-arts, cultural, gallery, community, auditorium,
+   and event venues with websites. Results are deduplicated by website; no city
+   or venue is embedded in the discovery rules.
 3. Each website is inspected with strict page and response limits. Calendar and
    show-listing URLs are prioritized ahead of individual event URLs, and up to
    24 relevant pages are inspected per organization.
@@ -62,6 +66,9 @@ an existing reusable parser, after which the workflow runs source ingestion.
 
 - Discovery is independent of indexed event count, so cities with large
   commercial inventories still receive municipal and small-venue discovery.
+- The Overture Places worker is a discovery seed only. A returned venue is not
+  registered unless its official website exposes a reusable supported calendar
+  and that parser returns plausible upcoming events.
 - Discovery is bounded by radius, cell count, organization count, pages per organization,
   response size, and worker batch size.
 - Localhost and private-address URLs are rejected.

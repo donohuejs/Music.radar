@@ -125,6 +125,11 @@ poster/PDF assets.
   collections; server-side writes use Firebase Admin.
 - Source discovery rejects private/local addresses and bounds geographic cells,
   organizations, pages, response sizes, and worker batches.
+- Geographic venue seeding combines OpenStreetMap with the free Overture Places
+  dataset. GitHub Actions resolves the latest monthly release through Overture's
+  STAC catalog, queries only pending geographic cells, and submits bounded
+  live-performance and cultural venue websites to the protected API. Those
+  leads still require normal calendar/parser validation before registration.
 
 ## Known limitations
 

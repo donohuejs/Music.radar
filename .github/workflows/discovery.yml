@@ -50,6 +50,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements-overture.txt
+      - name: Install Overture query runtime
+        run: python -m pip install --requirement scripts/requirements-overture.txt
       - name: Register requested verified source
         if: ${{ inputs.sourceName != '' && inputs.sourceUrl != '' && inputs.latitude != '' && inputs.longitude != '' }}
         env:
@@ -97,6 +105,11 @@ jobs:
             --header "Content-Type: application/json" \
             --data "$payload" \
             https://music-radar-one.vercel.app/api/discover
+      - name: Seed queued locations from Overture Places
+        env:
+          MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
+          MUSIC_RADAR_API_BASE: https://music-radar-one.vercel.app
+        run: python scripts/overture-place-worker.py
       - name: Process queued discovery locations
         env:
           MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
