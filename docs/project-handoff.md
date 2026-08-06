@@ -134,6 +134,9 @@ poster/PDF assets.
   STAC catalog, queries only pending geographic cells, and submits bounded
   live-performance and cultural venue websites to the protected API. Those
   leads still require normal calendar/parser validation before registration.
+  Overture seeds continue through inspection when every OpenStreetMap endpoint
+  times out; the degraded provider is recorded as a discovery warning instead
+  of discarding candidates from the healthy provider.
 
 ## Known limitations
 

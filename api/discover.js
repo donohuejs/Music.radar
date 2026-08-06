@@ -146,6 +146,11 @@ async function runJobs(db, limit, deadline) {
       const candidateCount = Number(job.candidateCount || 0) + savedCandidates.length;
       const registeredSourceCount =
         Number(job.registeredSourceCount || 0) + registeredSources;
+      const discoveryWarnings = batch.organizationDiscoveryError
+        ? [batch.organizationDiscoveryError]
+        : Array.isArray(job.organizations) && job.organizations.length
+          ? job.discoveryWarnings || []
+          : [];
       await updateDiscoveryJob(db, job.id, {
         status: batch.complete ? "complete" : "pending",
         completedAt: batch.complete ? new Date().toISOString() : null,
@@ -160,6 +165,7 @@ async function runJobs(db, limit, deadline) {
         leaseExpiresAt: null,
         retryAfter: null,
         error: null,
+        discoveryWarnings,
       });
       results.push({
         id: job.id,
@@ -170,6 +176,7 @@ async function runJobs(db, limit, deadline) {
         organizationCount: batch.organizationCount,
         candidateCount,
         registeredSourceCount,
+        warnings: discoveryWarnings,
       });
     } catch (error) {
       const failure = discoveryFailureState(job);
