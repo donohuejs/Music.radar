@@ -10,6 +10,8 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
 
 - Search by typed location or browser geolocation with a reverse-geocoded
   city/state/ZIP confirmation.
+- Free, locally indexed city/state/ZIP suggestions with prefix and typo-tolerant
+  matching; submitted locations still use the server geocoder.
 - Tonight, tomorrow, weekend, next-7-day, next-14-day, next-30-day, and visual
   custom-range searches.
 - Separate categories for live music, participatory music, trivia, theater, and
@@ -65,6 +67,10 @@ Vercel server variables:
 
 The browser-safe `VITE_FIREBASE_*` values are documented in `.env.example`.
 Server credentials must never use the `VITE_` prefix.
+
+The checked-in location suggestion index is generated from GeoNames US city
+and postal data under CC BY 4.0. Rebuild it with
+`node scripts/build-location-suggestions.js <US.txt> <cities15000.txt>`.
 
 GitHub Actions requires one repository secret:
 

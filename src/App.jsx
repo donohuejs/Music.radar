@@ -6,6 +6,7 @@ import {
   groupTheaterRuns,
   scanButtonLabel,
 } from "./lib/eventDisplay.js";
+import LocationAutocomplete from "./LocationAutocomplete.jsx";
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100];
 const DATE_OPTIONS = [
@@ -416,15 +417,20 @@ export default function App() {
             <label>
               Location
               <div className="location-row">
-                <input
+                <LocationAutocomplete
                   value={locationText}
-                  onChange={(event) => {
-                    setLocationText(event.target.value);
+                  onChange={(value) => {
+                    setLocationText(value);
                     setCoordinates(null);
                     setLocationMessage("");
                     setLocationStatus("idle");
                   }}
-                  placeholder="Enter a city, state, or ZIP"
+                  onSelect={(value) => {
+                    setLocationText(value);
+                    setCoordinates(null);
+                    setLocationMessage(`Location selected: ${value}.`);
+                    setLocationStatus("idle");
+                  }}
                   required={!coordinates}
                 />
                 <button className={`button button--secondary ${locationStatus === "success" ? "is-success" : ""}`} type="button" onClick={useCurrentLocation} disabled={locationStatus === "loading"}>
@@ -525,6 +531,7 @@ export default function App() {
           sponsored or endorsed by Discogs. ‘Discogs’ is a trademark of Zink
           Media, LLC.
         </p>
+        <p>City and ZIP suggestions contain <a href="https://www.geonames.org/" target="_blank" rel="noreferrer">GeoNames</a> data licensed under CC BY 4.0.</p>
       </footer>
     </main>
   );

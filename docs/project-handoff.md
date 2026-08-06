@@ -42,6 +42,10 @@ interface carries the required trademark/non-affiliation notice.
 
 Browser geolocation is reverse-geocoded server-side for a visible city/state/ZIP
 confirmation, while searches continue to use the precise browser coordinates.
+Typed locations use a lazy-loaded, checked-in GeoNames US city/state/ZIP index;
+prefix matches are ranked locally and small city-name typos receive bounded
+fuzzy matching. No geocoding request is made while typing. Free-form values and
+selected suggestions are resolved by the existing server geocoder on submit.
 
 ## Event model highlights
 
