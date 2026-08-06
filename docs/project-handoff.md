@@ -137,6 +137,10 @@ poster/PDF assets.
   Overture seeds continue through inspection when every OpenStreetMap endpoint
   times out; the degraded provider is recorded as a discovery warning instead
   of discarding candidates from the healthy provider.
+  Overture selection accepts both recognized cultural taxonomies and strong
+  arts/music name signals when a public website is present, then relies on the
+  normal reusable-calendar validator to reject unrelated businesses. OSM
+  discovery rotates across multiple documented global Overpass instances.
 
 ## Known limitations
 

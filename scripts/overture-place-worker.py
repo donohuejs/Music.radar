@@ -17,7 +17,6 @@ CATEGORY_PATTERN = (
     "live_music|music_venue|concert|jazz|performing_arts|cultural_center|"
     "art_gallery|art_center|arts_center|nightclub|event_venue|auditorium|opera_house"
 )
-COMMUNITY_PATTERN = "social_or_community_service|community_center"
 ARTS_NAME_PATTERN = "music|arts?|jazz|theat|cultur|perform|creative|sound|gallery|concert|opera"
 
 
@@ -61,10 +60,7 @@ def query_places(connection, release, job):
           AND confidence >= 0.55
           AND (
             regexp_matches(lower(CAST(taxonomy AS VARCHAR)), '{CATEGORY_PATTERN}')
-            OR (
-              regexp_matches(lower(CAST(taxonomy AS VARCHAR)), '{COMMUNITY_PATTERN}')
-              AND regexp_matches(lower(names.primary), '{ARTS_NAME_PATTERN}')
-            )
+            OR regexp_matches(lower(names.primary), '{ARTS_NAME_PATTERN}')
           )
         ORDER BY confidence DESC
         LIMIT 100

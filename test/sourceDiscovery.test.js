@@ -29,6 +29,41 @@ test("builds a bounded Overpass query for likely music organizations", () => {
   assert.match(query, /boundary"="administrative/);
 });
 
+test("falls back to another global Overpass instance", async (context) => {
+  const originalFetch = global.fetch;
+  context.after(() => { global.fetch = originalFetch; });
+  const requestedHosts = [];
+  global.fetch = async (url) => {
+    requestedHosts.push(new URL(url).hostname);
+    if (requestedHosts.length === 1) throw new Error("first provider unavailable");
+    return {
+      ok: true,
+      json: async () => ({
+        elements: [{
+          type: "node",
+          id: 42,
+          lat: 41.93,
+          lon: -87.71,
+          tags: {
+            name: "Independent Music Room",
+            website: "https://independent-room.example/events",
+            amenity: "music_venue",
+          },
+        }],
+      }),
+    };
+  };
+
+  const { discoverNearbyOrganizations } = await import("../lib/server/sourceDiscovery.js");
+  const organizations = await discoverNearbyOrganizations(
+    { latitude: 41.93, longitude: -87.71, radiusMiles: 5 },
+    { timeoutMs: 12000 },
+  );
+
+  assert.equal(requestedHosts.length, 2);
+  assert.equal(organizations[0].name, "Independent Music Room");
+});
+
 test("normalizes public OSM websites and rejects private network targets", () => {
   const candidates = parseOverpassCandidates({
     elements: [
