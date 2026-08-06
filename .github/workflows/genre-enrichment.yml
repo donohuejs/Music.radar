@@ -23,12 +23,20 @@ jobs:
           for batch in $(seq 1 80); do
             body=$(jq --null-input --compact-output --arg cursor "$cursor" \
               '{limit: 4} + if $cursor == "" then {} else {cursor: $cursor} end')
-            response=$(curl --fail-with-body --silent --show-error \
+            if ! response=$(curl --fail-with-body --silent --show-error \
+              --retry 3 \
+              --retry-all-errors \
+              --retry-delay 5 \
+              --max-time 58 \
               --request POST \
               --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
               --header "Content-Type: application/json" \
               --data "$body" \
-              https://music-radar-one.vercel.app/api/enrich-genres)
+              https://music-radar-one.vercel.app/api/enrich-genres); then
+              echo "Genre enrichment request failed after retries. Response body:" >&2
+              echo "${response:-<empty response>}" >&2
+              exit 1
+            fi
             echo "$response" | jq --compact-output .
             lookups=$(echo "$response" | jq --raw-output '.musicBrainzLookups // empty')
             if ! [[ "$lookups" =~ ^[0-9]+$ ]]; then

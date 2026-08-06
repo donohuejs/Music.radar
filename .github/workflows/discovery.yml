@@ -50,8 +50,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -78,6 +78,10 @@ jobs:
             --argjson longitude "$SOURCE_LONGITUDE" \
             '{name:$name, url:$url, parser:$parser, category:$category, latitude:$latitude, longitude:$longitude, enabled:true}')"
           curl --fail-with-body --silent --show-error \
+            --retry 3 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --max-time 58 \
             --request POST \
             --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
             --header "Content-Type: application/json" \
@@ -100,6 +104,10 @@ jobs:
             --argjson force "$DISCOVERY_FORCE" \
             '{action:"queue", latitude:$latitude, longitude:$longitude, radiusMiles:$radiusMiles, force:$force}')"
           curl --fail-with-body --silent --show-error \
+            --retry 3 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --max-time 58 \
             --request POST \
             --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
             --header "Content-Type: application/json" \
@@ -116,15 +124,26 @@ jobs:
         run: |
           test -n "$MUSIC_RADAR_INGEST_SECRET"
           for attempt in {1..20}; do
-            response="$(curl --fail-with-body --silent --show-error \
+            if ! response="$(curl --fail-with-body --silent --show-error \
+              --retry 3 \
+              --retry-all-errors \
+              --retry-delay 5 \
               --max-time 58 \
               --request POST \
               --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
               --header "Content-Type: application/json" \
               --data '{"action":"run","limit":2}' \
-              https://music-radar-one.vercel.app/api/discover)"
+              https://music-radar-one.vercel.app/api/discover)"; then
+              echo "Discovery request failed after retries. Response body:" >&2
+              echo "${response:-<empty response>}" >&2
+              exit 1
+            fi
             echo "$response"
-            jq -e '(.results // []) | all(.ok == true)' <<< "$response" >/dev/null
+            failed_count="$(jq '[.results[]? | select(.ok != true and .deferred != true)] | length' <<< "$response")"
+            deferred_count="$(jq '[.results[]? | select(.deferred == true)] | length' <<< "$response")"
+            if [[ "$failed_count" != "0" || "$deferred_count" != "0" ]]; then
+              echo "Discovery batch reported ${failed_count} terminal and ${deferred_count} deferred location failures; continuing with other locations."
+            fi
             if [[ "$(jq -r '.processed // 0' <<< "$response")" == "0" ]]; then
               echo "Discovery queue is drained or waiting for deferred retries."
               break
@@ -139,13 +158,20 @@ jobs:
             payload="$(jq -n \
               --argjson force "$SOURCE_INGEST_FORCE" \
               '{limit:4, force:$force}')"
-            response="$(curl --fail-with-body --silent --show-error \
+            if ! response="$(curl --fail-with-body --silent --show-error \
+              --retry 3 \
+              --retry-all-errors \
+              --retry-delay 5 \
               --max-time 58 \
               --request POST \
               --header "Authorization: Bearer $MUSIC_RADAR_INGEST_SECRET" \
               --header "Content-Type: application/json" \
               --data "$payload" \
-              https://music-radar-one.vercel.app/api/ingest-sources)"
+              https://music-radar-one.vercel.app/api/ingest-sources)"; then
+              echo "Source ingestion request failed after retries. Response body:" >&2
+              echo "${response:-<empty response>}" >&2
+              exit 1
+            fi
             echo "$response"
             if [[ "$(jq -r '.cycleComplete // false' <<< "$response")" == "true" ]]; then
               echo "Registered source ingestion cycle is complete."
@@ -158,7 +184,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install open-source document tools
         run: sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr
       - name: Extract text from newly discovered posters
