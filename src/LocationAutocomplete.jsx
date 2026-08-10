@@ -86,7 +86,7 @@ export default function LocationAutocomplete({ value, onChange, onSelect, requir
         onFocus={() => { ensureIndex(); if (suggestions.length) setOpen(true); }}
         onBlur={() => setOpen(false)}
         onKeyDown={handleKeyDown}
-        placeholder="Enter a city, state, or ZIP"
+        placeholder="Enter a city, region, postal code, or country"
         required={required}
         autoComplete="off"
         role="combobox"

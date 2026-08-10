@@ -1,8 +1,9 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { getDateRange } from "./lib/dateRange.js";
 import { calendarDays, parseLocalDate, toLocalDateValue } from "./lib/calendar.js";
 import {
   confidenceExplanation,
+  filterAndSortEvents,
   groupTheaterRuns,
   scanButtonLabel,
 } from "./lib/eventDisplay.js";
@@ -26,6 +27,7 @@ const CATEGORY_OPTIONS = [
   { label: "Comedy", value: "comedy" },
   { label: "All events", value: "all" },
 ];
+const RESULTS_PAGE_SIZE = 24;
 
 function formatDate(value) {
   if (!value) return "Time TBD";
@@ -270,7 +272,11 @@ export default function App() {
   );
   const [category, setCategory] = useState("music");
   const [genre, setGenre] = useState("all");
+  const [resultQuery, setResultQuery] = useState("");
+  const [resultSort, setResultSort] = useState("date");
+  const [visibleCount, setVisibleCount] = useState(RESULTS_PAGE_SIZE);
   const [events, setEvents] = useState([]);
+  const [searchMeta, setSearchMeta] = useState(null);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
   const [locationStatus, setLocationStatus] = useState("idle");
@@ -289,22 +295,23 @@ export default function App() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [displayedEvents]);
-  const visibleEvents = useMemo(
-    () => genre === "all"
-      ? displayedEvents
-      : displayedEvents.filter((event) => (event.genres || []).includes(genre)),
-    [displayedEvents, genre],
+  const filteredEvents = useMemo(
+    () => filterAndSortEvents(displayedEvents, { genre, query: resultQuery, sort: resultSort }),
+    [displayedEvents, genre, resultQuery, resultSort],
   );
+  const visibleEvents = filteredEvents.slice(0, visibleCount);
+
+  useEffect(() => setVisibleCount(RESULTS_PAGE_SIZE), [genre, resultQuery, resultSort, events]);
 
   const resultSummary = useMemo(() => {
     if (status === "loading") return "Scanning nearby sources…";
     if (status === "error") return message;
     if (status === "success") {
-      const filtered = visibleEvents.length !== displayedEvents.length;
-      return `${visibleEvents.length} event${visibleEvents.length === 1 ? "" : "s"} found${filtered ? ` (${displayedEvents.length} before genre filter)` : ""}`;
+      const filtered = filteredEvents.length !== displayedEvents.length;
+      return `${filteredEvents.length} event${filteredEvents.length === 1 ? "" : "s"} found${filtered ? ` (${displayedEvents.length} total)` : ""}`;
     }
     return "Search nationwide listings, enhanced by local venue coverage where available.";
-  }, [displayedEvents.length, message, status, visibleEvents.length]);
+  }, [displayedEvents.length, filteredEvents.length, message, status]);
 
   function useCurrentLocation() {
     if (!navigator.geolocation) {
@@ -349,6 +356,8 @@ export default function App() {
     setStatus("loading");
     setMessage("");
     setGenre("all");
+    setResultQuery("");
+    setSearchMeta(null);
 
     let dates;
     try {
@@ -393,6 +402,7 @@ export default function App() {
       }
 
       setEvents(Array.isArray(body.events) ? body.events : []);
+      setSearchMeta(body.meta || null);
       setStatus("success");
     } catch (error) {
       setMessage(error.message || "Search failed.");
@@ -514,16 +524,50 @@ export default function App() {
           ) : null}
         </div>
 
-        {status === "success" && visibleEvents.length === 0 ? (
+        {status === "success" && displayedEvents.length ? (
+          <div className="result-tools" aria-label="Refine search results">
+            <label>
+              Find in results
+              <input
+                type="search"
+                value={resultQuery}
+                onChange={(event) => setResultQuery(event.target.value)}
+                placeholder="Artist, venue, neighborhood, or genre"
+              />
+            </label>
+            <label>
+              Sort by
+              <select value={resultSort} onChange={(event) => setResultSort(event.target.value)}>
+                <option value="date">Soonest</option>
+                <option value="distance">Nearest</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
+
+        {status === "success" && (searchMeta?.ticketmasterTruncated || searchMeta?.discoveryQueued) ? (
+          <p className="coverage-note" role="status">
+            {searchMeta.ticketmasterTruncated
+              ? "This area has more commercial listings than the provider returned in one scan. Narrow the date range or distance for complete results."
+              : "We’re expanding local-source coverage for this area in the background. Check back for newly indexed venue listings."}
+          </p>
+        ) : null}
+
+        {status === "success" && filteredEvents.length === 0 ? (
           <div className="empty-state">
-            <h2>{displayedEvents.length ? "No events match that genre." : "No events found yet."}</h2>
-            <p>{displayedEvents.length ? "Try another genre or choose All genres." : "Try a larger radius or broader date range. This result may also indicate a coverage gap."}</p>
+            <h2>{displayedEvents.length ? "No events match those filters." : "No events found yet."}</h2>
+            <p>{displayedEvents.length ? "Clear the results search or choose another genre." : "Try a larger radius or broader date range. This result may also indicate a coverage gap."}</p>
           </div>
         ) : null}
 
         <div className="event-grid">
           {visibleEvents.map((event) => <EventCard key={event.id} event={event} />)}
         </div>
+        {visibleEvents.length < filteredEvents.length ? (
+          <button className="button load-more" type="button" onClick={() => setVisibleCount((count) => count + RESULTS_PAGE_SIZE)}>
+            Show more ({filteredEvents.length - visibleEvents.length} remaining)
+          </button>
+        ) : null}
       </section>
       <footer className="site-footer">
         <p>

@@ -120,6 +120,9 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
 .genre-filters button { padding: 8px 12px; color: #c8d0d4; background: #171b1e; border: 1px solid #343b40; border-radius: 999px; cursor: pointer; font-size: .78rem; font-weight: 800; }
 .genre-filters button:hover { color: #fff; border-color: #68747b; }
 .genre-filters button.is-active { color: #111; background: #b1ff47; border-color: #b1ff47; }
+.result-tools { display: grid; grid-template-columns: minmax(260px, 1fr) 180px; gap: 14px; margin: 0 0 20px; padding: 16px; background: #101416; border: 1px solid #293036; border-radius: 14px; }
+.coverage-note { margin: 0 0 20px; padding: 12px 14px; color: #d7e8c0; background: rgba(177, 255, 71, .07); border-left: 3px solid #b1ff47; border-radius: 7px; line-height: 1.5; }
+.load-more { margin: 24px auto 0; color: #111; background: #b1ff47; }
 
 .event-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .event-card { display: grid; grid-template-columns: 170px 1fr; min-height: 220px; overflow: hidden; background: #13171a; border: 1px solid #2a3035; border-radius: 16px; }
@@ -233,6 +236,7 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
   .ops-columns { grid-template-columns: 1fr; }
   .ops-filters { grid-template-columns: 1fr; }
   .poster-draft__fields { grid-template-columns: 1fr; }
+  .result-tools { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .hero { padding: 36px 16px; }

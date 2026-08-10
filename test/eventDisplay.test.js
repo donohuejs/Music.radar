@@ -3,9 +3,23 @@ import assert from "node:assert/strict";
 
 import {
   confidenceExplanation,
+  filterAndSortEvents,
   groupTheaterRuns,
   scanButtonLabel,
 } from "../src/lib/eventDisplay.js";
+
+test("filters dense results by venue text and sorts them by distance", () => {
+  const events = [
+    { id: "far", name: "Alpha", venueName: "Arena", startTime: "2026-09-01T19:00:00Z", distanceMiles: 8, genres: ["Rock"] },
+    { id: "near", name: "Beta", venueName: "Neighborhood Club", startTime: "2026-09-02T19:00:00Z", distanceMiles: 1, genres: ["Jazz"] },
+    { id: "mid", name: "Gamma", venueName: "Neighborhood Hall", startTime: "2026-09-03T19:00:00Z", distanceMiles: 4, genres: ["Rock"] },
+  ];
+  assert.deepEqual(
+    filterAndSortEvents(events, { query: "neighborhood", sort: "distance" }).map((event) => event.id),
+    ["near", "mid"],
+  );
+  assert.deepEqual(filterAndSortEvents(events, { genre: "Rock" }).map((event) => event.id), ["far", "mid"]);
+});
 
 test("uses the selected category in the scan button", () => {
   assert.equal(scanButtonLabel("music"), "Scan for live music");

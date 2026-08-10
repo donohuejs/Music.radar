@@ -11,6 +11,25 @@ export function scanButtonLabel(category) {
   return CATEGORY_SCAN_LABELS[category] || "Scan for events";
 }
 
+export function filterAndSortEvents(events = [], { genre = "all", query = "", sort = "date" } = {}) {
+  const needle = String(query).trim().toLocaleLowerCase();
+  const filtered = events.filter((event) => {
+    if (genre !== "all" && !(event.genres || []).includes(genre)) return false;
+    if (!needle) return true;
+    return [event.name, event.venueName, event.city, event.state, ...(event.genres || [])]
+      .some((value) => String(value || "").toLocaleLowerCase().includes(needle));
+  });
+
+  return [...filtered].sort((a, b) => {
+    if (sort === "distance") {
+      const distanceDifference = (Number.isFinite(a.distanceMiles) ? a.distanceMiles : Infinity) -
+        (Number.isFinite(b.distanceMiles) ? b.distanceMiles : Infinity);
+      if (distanceDifference) return distanceDifference;
+    }
+    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+  });
+}
+
 const THEATER_RUN_GAP_MS = 14 * 24 * 60 * 60 * 1000;
 
 function theaterIdentity(value) {
