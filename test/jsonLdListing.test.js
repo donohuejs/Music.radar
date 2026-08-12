@@ -37,3 +37,36 @@ test("collects JSON-LD events from linked detail pages", async (context) => {
   assert.equal(events[0].venueName, "Example Hall");
   assert.ok(events.every((event) => event.category === "music"));
 });
+
+test("collects Wix-style event-details pages", async (context) => {
+  const originalFetch = global.fetch;
+  context.after(() => { global.fetch = originalFetch; });
+  const pages = new Map([
+    [
+      "https://venue.example/events",
+      ["one", "two", "three"]
+        .map((slug) => `<a href="/event-details/${slug}">${slug}</a>`)
+        .join(""),
+    ],
+    ...["one", "two", "three"].map((slug, index) => [
+      `https://venue.example/event-details/${slug}`,
+      `<script type="application/ld+json">{"@type":"Event","name":"Artist ${index + 1}","startDate":"2026-09-${16 + index}T20:00:00-05:00","location":{"name":"Example Hall"}}</script>`,
+    ]),
+  ]);
+  global.fetch = async (url) => ({
+    ok: pages.has(String(url)),
+    status: pages.has(String(url)) ? 200 : 404,
+    text: async () => pages.get(String(url)) || "",
+  });
+  const events = await fetchVenueEvents({
+    id: "example-hall",
+    name: "Example Hall",
+    url: "https://venue.example/events",
+    parser: "json-ld-listing",
+    category: "music",
+    latitude: 41.9,
+    longitude: -87.65,
+  });
+  assert.equal(events.length, 3);
+  assert.ok(events.every((event) => event.sourceUrl.includes("/event-details/")));
+});

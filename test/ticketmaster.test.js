@@ -95,6 +95,35 @@ test("splits dense date windows before deep paging", async (context) => {
   assert.equal(events.collectionStatus.truncated, false);
 });
 
+test("sends Ticketmaster geographic, radius, and inclusive date parameters", async (context) => {
+  const originalFetch = global.fetch;
+  context.after(() => { global.fetch = originalFetch; });
+  let requestedUrl;
+  global.fetch = async (value) => {
+    requestedUrl = new URL(value);
+    return {
+      ok: true,
+      text: async () => JSON.stringify({ page: { totalPages: 1, totalElements: 0 } }),
+    };
+  };
+  await fetchTicketmasterEvents({
+    apiKey: " key-with-whitespace\n",
+    lat: 34.8247,
+    lng: -82.3442,
+    radius: 25,
+    startDate: new Date("2026-08-12T04:00:00.000Z"),
+    endDate: new Date("2026-09-13T03:59:59.999Z"),
+    category: "music",
+  });
+  assert.equal(requestedUrl.searchParams.get("apikey"), "key-with-whitespace");
+  assert.equal(requestedUrl.searchParams.get("latlong"), "34.8247,-82.3442");
+  assert.equal(requestedUrl.searchParams.get("radius"), "25");
+  assert.equal(requestedUrl.searchParams.get("unit"), "miles");
+  assert.equal(requestedUrl.searchParams.get("classificationName"), "music");
+  assert.equal(requestedUrl.searchParams.get("startDateTime"), "2026-08-12T04:00:00Z");
+  assert.equal(requestedUrl.searchParams.get("endDateTime"), "2026-09-13T03:59:59Z");
+});
+
 test("keeps successful classifications when another Ticketmaster query fails", async (context) => {
   const originalFetch = global.fetch;
   context.after(() => { global.fetch = originalFetch; });

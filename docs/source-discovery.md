@@ -21,8 +21,9 @@ stored for the area.
 3. Each website is inspected with strict page and response limits. Calendar and
    show-listing URLs are prioritized ahead of individual event URLs, and up to
    24 relevant pages are inspected per organization.
-4. Recognized ICS, RSS, JSON-LD, linked JSON-LD event listings, and embedded
-   Tockify calendars become source candidates. A linked listing is registered
+4. Recognized ICS, RSS, JSON-LD, linked JSON-LD event listings (including
+   common `/event-details/` collection routes), and embedded Tockify calendars
+   become source candidates. A linked listing is registered
    as one durable venue source and follows a bounded set of current detail pages
    during each ingestion run; individual event pages are not registered when a
    covering listing is available. Confidence increases with repeated sightings.

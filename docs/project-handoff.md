@@ -152,8 +152,9 @@ poster/PDF assets.
 2. Many small/local artists are absent from MusicBrainz. Exact-name and
    high-confidence matching intentionally leaves uncertain artists unclassified.
 3. Discovery now recognizes linked JSON-LD event listings as durable sources,
-   but novel JavaScript calendars and HTML-only event detail pages still require
-   a reusable adapter. They remain candidates rather than publishing guessed
+   including conventional `/event/` and Wix-style `/event-details/` routes
+   through one reusable matcher. Novel JavaScript calendars and HTML-only event
+   detail pages still require a reusable adapter. They remain candidates rather than publishing guessed
    dates or time zones.
 4. Search quality must still be tested in markets beyond Greenville. The
    dashboard now identifies weak markets from recent searches, but it does not

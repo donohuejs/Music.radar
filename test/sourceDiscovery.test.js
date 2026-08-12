@@ -162,6 +162,15 @@ test("recognizes Metro-style WordPress event detail links", () => {
   assert.equal(detection.linkedEventCount, 3);
 });
 
+test("recognizes reusable Wix event-detail listings", () => {
+  const links = ["one", "two", "three"].map(
+    (slug) => `<a href="/event-details/${slug}">${slug}</a>`,
+  ).join("");
+  const detection = detectPageSource(links, "https://venue.example/events");
+  assert.equal(detection.parser, "json-ld-listing");
+  assert.equal(detection.linkedEventCount, 3);
+});
+
 test("does not classify a normal shows link as a poster asset", () => {
   assert.equal(
     detectPageSource('<a href="/shows">Music lineup and shows</a>', "https://venue.example/"),
