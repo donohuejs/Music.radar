@@ -20,3 +20,17 @@ test("uses an empty fallback when optional search data cannot be loaded", async 
     health: { ok: false, error: "service unavailable" },
   });
 });
+
+test("stops waiting for an optional search dependency", async () => {
+  const result = await settledSource(
+    "Slow data",
+    () => new Promise(() => {}),
+    [],
+    { timeoutMs: 5 },
+  );
+
+  assert.deepEqual(result, {
+    value: [],
+    health: { ok: false, error: "Slow data timed out after 5ms." },
+  });
+});

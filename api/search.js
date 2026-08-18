@@ -23,10 +23,19 @@ function validateDate(value, fallback) {
   return Number.isNaN(date.getTime()) ? fallback : date;
 }
 
-export async function settledSource(name, operation, fallback) {
+export async function settledSource(name, operation, fallback, { timeoutMs = 15000 } = {}) {
+  let timeout;
   try {
     return {
-      value: await operation(),
+      value: await Promise.race([
+        operation(),
+        new Promise((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error(`${name} timed out after ${timeoutMs}ms.`)),
+            timeoutMs,
+          );
+        }),
+      ]),
       health: { ok: true, error: null },
     };
   } catch (error) {
@@ -36,6 +45,8 @@ export async function settledSource(name, operation, fallback) {
       value: fallback,
       health: { ok: false, error: message },
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -137,11 +148,12 @@ export default async function handler(request, response) {
     const indexedSearchEnabled =
       process.env.INDEXED_SEARCH_ENABLED === "true" && Boolean(db);
 
-    const [firestore, localVenues, ticketmaster] = await Promise.all([
+    const [firestore, localVenues, ticketmaster, suppressions] = await Promise.all([
       settledSource(
         "Firestore",
         () => fetchStoredEvents({ db, startDate, endDate, lat, lng, radius }),
         [],
+        { timeoutMs: 8000 },
       ),
       settledSource(
         "Local venues",
@@ -150,6 +162,7 @@ export default async function handler(request, response) {
             ? Promise.resolve({ events: [], sourceStatus: [] })
             : fetchLocalVenueEvents(),
         { events: [], sourceStatus: [] },
+        { timeoutMs: 10000 },
       ),
       process.env.TICKETMASTER_API_KEY
         ? settledSource(
@@ -165,6 +178,7 @@ export default async function handler(request, response) {
                 category,
               }),
             [],
+            { timeoutMs: 15000 },
           )
         : Promise.resolve({
             value: [],
@@ -173,13 +187,14 @@ export default async function handler(request, response) {
               error: "TICKETMASTER_API_KEY is not configured.",
             },
           }),
+      settledSource(
+        "Event suppressions",
+        () => loadEventSuppressions(db),
+        [],
+        { timeoutMs: 5000 },
+      ),
     ]);
 
-    const suppressions = await settledSource(
-      "Event suppressions",
-      () => loadEventSuppressions(db),
-      [],
-    );
     const merged = filterSuppressedEvents(mergeAndDedupe([
       ...firestore.value,
       ...localVenues.value.events,
