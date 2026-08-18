@@ -23,7 +23,7 @@ function validateDate(value, fallback) {
   return Number.isNaN(date.getTime()) ? fallback : date;
 }
 
-async function settledSource(name, operation, fallback) {
+export async function settledSource(name, operation, fallback) {
   try {
     return {
       value: await operation(),
@@ -39,8 +39,17 @@ async function settledSource(name, operation, fallback) {
   }
 }
 
-async function fetchStoredEvents({ startDate, endDate, lat, lng, radius }) {
-  const db = getAdminDb();
+export function initializeSearchDb(getDb = getAdminDb) {
+  try {
+    return { db: getDb(), error: null };
+  } catch (error) {
+    const message = error?.message || "Firebase Admin failed to initialize.";
+    console.warn("Firebase Admin initialization failed:", message);
+    return { db: null, error: message };
+  }
+}
+
+async function fetchStoredEvents({ db, startDate, endDate, lat, lng, radius }) {
   if (!db) return [];
 
   const cells = searchGeoCells(lat, lng, radius);
@@ -124,13 +133,14 @@ export default async function handler(request, response) {
     });
     const lat = resolvedLocation.latitude;
     const lng = resolvedLocation.longitude;
+    const { db, error: firebaseInitializationError } = initializeSearchDb();
     const indexedSearchEnabled =
-      process.env.INDEXED_SEARCH_ENABLED === "true" && Boolean(getAdminDb());
+      process.env.INDEXED_SEARCH_ENABLED === "true" && Boolean(db);
 
     const [firestore, localVenues, ticketmaster] = await Promise.all([
       settledSource(
         "Firestore",
-        () => fetchStoredEvents({ startDate, endDate, lat, lng, radius }),
+        () => fetchStoredEvents({ db, startDate, endDate, lat, lng, radius }),
         [],
       ),
       settledSource(
@@ -165,12 +175,16 @@ export default async function handler(request, response) {
           }),
     ]);
 
-    const suppressions = await loadEventSuppressions(getAdminDb());
+    const suppressions = await settledSource(
+      "Event suppressions",
+      () => loadEventSuppressions(db),
+      [],
+    );
     const merged = filterSuppressedEvents(mergeAndDedupe([
       ...firestore.value,
       ...localVenues.value.events,
       ...ticketmaster.value,
-    ]), suppressions);
+    ]), suppressions.value);
 
     const filtered = attachDistanceAndFilter(merged, lat, lng, radius)
       .filter((event) => {
@@ -192,7 +206,7 @@ export default async function handler(request, response) {
     let coverageRecord = null;
     if (indexedSearchEnabled) {
       try {
-        discoveryCoverage = await queueDiscoveryJobsForArea(getAdminDb(), {
+        discoveryCoverage = await queueDiscoveryJobsForArea(db, {
           latitude: lat,
           longitude: lng,
           displayName: resolvedLocation.displayName,
@@ -202,7 +216,7 @@ export default async function handler(request, response) {
         console.warn("Could not queue source discovery:", error.message);
       }
       try {
-        coverageRecord = await recordSearchCoverage(getAdminDb(), {
+        coverageRecord = await recordSearchCoverage(db, {
           displayName: resolvedLocation.displayName,
           radiusMiles: radius,
           category,
@@ -236,7 +250,7 @@ export default async function handler(request, response) {
         ticketmasterTruncated:
           ticketmaster.value.collectionStatus?.truncated === true,
         returnedCount: filtered.length,
-        firebaseConfigured: Boolean(getAdminDb()),
+        firebaseConfigured: Boolean(db),
         ticketmasterConfigured: Boolean(process.env.TICKETMASTER_API_KEY),
         discoveryQueued: discoveryCoverage.queuedCount > 0,
         discoveryQueuedCellCount: discoveryCoverage.queuedCount,
@@ -245,6 +259,10 @@ export default async function handler(request, response) {
         localSources: localVenues.value.sourceStatus,
         sourceHealth: {
           firestore: firestore.health,
+          firebaseAdmin: firebaseInitializationError
+            ? { ok: false, error: firebaseInitializationError }
+            : { ok: true, error: null },
+          eventSuppressions: suppressions.health,
           localVenues: localVenues.health,
           ticketmaster: ticketmaster.health,
         },
