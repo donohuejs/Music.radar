@@ -220,18 +220,22 @@ export default async function handler(request, response) {
     let discoveryCoverage = { queuedCount: 0, coverageCellCount: 0, cells: [] };
     let coverageRecord = null;
     if (indexedSearchEnabled) {
-      try {
-        discoveryCoverage = await queueDiscoveryJobsForArea(db, {
+      const discovery = await settledSource(
+        "Source discovery queue",
+        () => queueDiscoveryJobsForArea(db, {
           latitude: lat,
           longitude: lng,
           displayName: resolvedLocation.displayName,
           radiusMiles: radius,
-        });
-      } catch (error) {
-        console.warn("Could not queue source discovery:", error.message);
-      }
-      try {
-        coverageRecord = await recordSearchCoverage(db, {
+        }),
+        discoveryCoverage,
+        { timeoutMs: 1500 },
+      );
+      discoveryCoverage = discovery.value;
+
+      const coverage = await settledSource(
+        "Search coverage record",
+        () => recordSearchCoverage(db, {
           displayName: resolvedLocation.displayName,
           radiusMiles: radius,
           category,
@@ -239,10 +243,11 @@ export default async function handler(request, response) {
           endDate,
           events: filtered,
           discoveryCoverage,
-        });
-      } catch (error) {
-        console.warn("Could not record search coverage:", error.message);
-      }
+        }),
+        null,
+        { timeoutMs: 1500 },
+      );
+      coverageRecord = coverage.value;
     }
 
     return response.status(200).json({
