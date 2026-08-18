@@ -98,8 +98,10 @@ poster/PDF assets.
   radii retain their outer discovery cells.
 - `.github/workflows/genre-enrichment.yml` drains MusicBrainz work in bounded
   batches of four while following event-page cursors until the complete
-  eligible collection has been scanned. An 80-batch safety limit fails visibly
-  instead of looping indefinitely during persistent provider errors.
+  eligible collection has been scanned. Event pages are capped to the same
+  four-document lookup budget so successful batches always advance without
+  skipping events or repeatedly reading a large partial page. An 80-batch
+  safety limit fails visibly during persistent provider errors.
 - Both GitHub workflows use `MUSIC_RADAR_INGEST_SECRET`.
 
 ## Security and operations

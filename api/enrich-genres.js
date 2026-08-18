@@ -38,6 +38,26 @@ async function updateEvents(writer, documents, genres, enrichment) {
   }
 }
 
+export function genreEnrichmentPageSize(limit) {
+  return Math.min(Math.max(Number(limit) || 4, 1), 8);
+}
+
+export function genreEnrichmentScanState({
+  cursor,
+  lastDocumentId,
+  pageExhausted,
+  pageSize,
+  snapshotSize,
+}) {
+  return {
+    scanComplete: pageExhausted && snapshotSize < pageSize,
+    nextCursor:
+      pageExhausted && snapshotSize === pageSize
+        ? lastDocumentId
+        : cursor || null,
+  };
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
@@ -57,7 +77,10 @@ export default async function handler(request, response) {
     ? request.body.cursor
     : "";
   try {
-    const pageSize = 250;
+    // Keep the document page no larger than the external lookup budget. This
+    // guarantees a successful page can advance its cursor without skipping
+    // artists or repeatedly reading a large, partially processed page.
+    const pageSize = genreEnrichmentPageSize(limit);
     let query = db
       .collection("events")
       .where("genres", "array-contains", "Genre not listed")
@@ -137,10 +160,13 @@ export default async function handler(request, response) {
 
     await writer.close();
     const lastDocumentId = snapshot.docs.at(-1)?.id || null;
-    const scanComplete = pageExhausted && snapshot.size < pageSize;
-    const nextCursor = pageExhausted && snapshot.size === pageSize
-      ? lastDocumentId
-      : cursor || null;
+    const { scanComplete, nextCursor } = genreEnrichmentScanState({
+      cursor,
+      lastDocumentId,
+      pageExhausted,
+      pageSize,
+      snapshotSize: snapshot.size,
+    });
     return response.status(200).json({
       ok: true,
       candidateArtists: groups.size,
