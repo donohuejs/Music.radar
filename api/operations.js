@@ -19,6 +19,28 @@ function documents(snapshot) {
   return snapshot.docs.map((document) => ({ id: document.id, ...document.data() }));
 }
 
+export async function loadOperationalCollection(name, operation, { timeoutMs = 10000 } = {}) {
+  let timeout;
+  try {
+    const snapshot = await Promise.race([
+      operation(),
+      new Promise((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error(`${name} timed out after ${timeoutMs}ms.`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+    return { documents: documents(snapshot), health: { ok: true, error: null } };
+  } catch (error) {
+    const message = error?.message || `${name} could not be loaded.`;
+    console.warn(`${name} diagnostics query failed:`, message);
+    return { documents: [], health: { ok: false, error: message } };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function audit(db, action, targetType, targetId, outcome, details = {}) {
   await db.collection("operationalAudit").add({
     action,
@@ -249,27 +271,32 @@ export default async function handler(request, response) {
       }
     }
 
-    const [sources, jobs, candidates, runs, audits, searches, genreCaches, suppressions] = await Promise.all([
-      db.collection("sources").limit(500).get(),
-      db.collection("discoveryJobs").limit(500).get(),
-      db.collection("sourceCandidates").limit(500).get(),
-      db.collection("ingestionRuns").orderBy("completedAt", "desc").limit(100).get(),
-      db.collection("operationalAudit").orderBy("createdAt", "desc").limit(100).get(),
-      db.collection("searchCoverage").orderBy("searchedAt", "desc").limit(200).get(),
-      db.collection("artistGenreCache").limit(1000).get(),
-      db.collection("eventSuppressions").orderBy("updatedAt", "desc").limit(200).get(),
+    const collections = await Promise.all([
+      loadOperationalCollection("Sources", () => db.collection("sources").limit(500).get()),
+      loadOperationalCollection("Discovery jobs", () => db.collection("discoveryJobs").limit(500).get()),
+      loadOperationalCollection("Source candidates", () => db.collection("sourceCandidates").limit(500).get()),
+      loadOperationalCollection("Ingestion runs", () => db.collection("ingestionRuns").orderBy("completedAt", "desc").limit(100).get()),
+      loadOperationalCollection("Operational audit", () => db.collection("operationalAudit").orderBy("createdAt", "desc").limit(100).get()),
+      loadOperationalCollection("Search coverage", () => db.collection("searchCoverage").orderBy("searchedAt", "desc").limit(200).get()),
+      loadOperationalCollection("Artist genre cache", () => db.collection("artistGenreCache").limit(1000).get()),
+      loadOperationalCollection("Event suppressions", () => db.collection("eventSuppressions").orderBy("updatedAt", "desc").limit(200).get()),
     ]);
+    const [sources, jobs, candidates, runs, audits, searches, genreCaches, suppressions] = collections;
     return response.status(200).json({
       ...buildOperationalDiagnostics({
-        sources: documents(sources),
-        jobs: documents(jobs),
-        candidates: documents(candidates),
-        runs: documents(runs),
-        audits: documents(audits),
-        searches: documents(searches),
-        genreCaches: documents(genreCaches),
+        sources: sources.documents,
+        jobs: jobs.documents,
+        candidates: candidates.documents,
+        runs: runs.documents,
+        audits: audits.documents,
+        searches: searches.documents,
+        genreCaches: genreCaches.documents,
       }),
-      eventSuppressions: documents(suppressions),
+      eventSuppressions: suppressions.documents,
+      collectionHealth: Object.fromEntries(
+        ["sources", "discoveryJobs", "sourceCandidates", "ingestionRuns", "operationalAudit", "searchCoverage", "artistGenreCache", "eventSuppressions"]
+          .map((name, index) => [name, collections[index].health]),
+      ),
     });
   } catch (error) {
     console.error(error);

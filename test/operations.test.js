@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import handler from "../api/operations.js";
+import handler, { loadOperationalCollection } from "../api/operations.js";
 
 function mockResponse() {
   return {
@@ -26,4 +26,28 @@ test("limits the operations endpoint to reads and protected actions", async () =
   await handler({ method: "DELETE", headers: {} }, response);
   assert.equal(response.statusCode, 405);
   assert.equal(response.headers.Allow, "GET, POST");
+});
+
+test("keeps diagnostics available when one collection query fails", async () => {
+  const result = await loadOperationalCollection("Sources", async () => {
+    throw new Error("service unavailable");
+  });
+
+  assert.deepEqual(result, {
+    documents: [],
+    health: { ok: false, error: "service unavailable" },
+  });
+});
+
+test("bounds a stalled diagnostics collection query", async () => {
+  const result = await loadOperationalCollection(
+    "Sources",
+    () => new Promise(() => {}),
+    { timeoutMs: 5 },
+  );
+
+  assert.deepEqual(result, {
+    documents: [],
+    health: { ok: false, error: "Sources timed out after 5ms." },
+  });
 });

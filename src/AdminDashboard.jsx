@@ -146,6 +146,14 @@ export default function AdminDashboard() {
       if (!response.ok) throw new Error(body.error || "Could not load diagnostics.");
       setDiagnostics(body);
       setStatus("success");
+      const unavailable = Object.entries(body.collectionHealth || {})
+        .filter(([, health]) => health?.ok === false)
+        .map(([name]) => name);
+      setMessage(
+        unavailable.length
+          ? `Dashboard loaded with unavailable data: ${unavailable.join(", ")}.`
+          : "",
+      );
     } catch (error) {
       setDiagnostics(null);
       setStatus("error");
