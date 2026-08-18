@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import handler, { loadOperationalCollection } from "../api/operations.js";
+import handler, { loadOperationalCollection, operationalCollectionFailure } from "../api/operations.js";
 
 function mockResponse() {
   return {
@@ -50,4 +50,25 @@ test("bounds a stalled diagnostics collection query", async () => {
     documents: [],
     health: { ok: false, error: "Sources timed out after 5ms." },
   });
+});
+
+test("reports exhausted Firestore quota instead of rendering false zeroes", () => {
+  const collections = Array.from({ length: 8 }, () => ({
+    documents: [],
+    health: { ok: false, error: "Quota exceeded." },
+  }));
+
+  assert.equal(
+    operationalCollectionFailure(collections),
+    "Firestore quota is exhausted. Operational data will be available after the quota resets or billing capacity is increased.",
+  );
+});
+
+test("allows partial operational diagnostics when at least one collection loads", () => {
+  const collections = [
+    { documents: [], health: { ok: false, error: "Quota exceeded." } },
+    { documents: [{ id: "source-1" }], health: { ok: true, error: null } },
+  ];
+
+  assert.equal(operationalCollectionFailure(collections), null);
 });

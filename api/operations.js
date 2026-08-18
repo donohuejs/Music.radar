@@ -41,6 +41,17 @@ export async function loadOperationalCollection(name, operation, { timeoutMs = 1
   }
 }
 
+export function operationalCollectionFailure(collections) {
+  const failed = collections.filter((collection) => collection.health.ok === false);
+  if (failed.length !== collections.length) return null;
+  const quotaExceeded = failed.every((collection) =>
+    /quota exceeded|resource_exhausted/i.test(collection.health.error || ""),
+  );
+  return quotaExceeded
+    ? "Firestore quota is exhausted. Operational data will be available after the quota resets or billing capacity is increased."
+    : "Firestore operational data is temporarily unavailable. Try again shortly.";
+}
+
 async function audit(db, action, targetType, targetId, outcome, details = {}) {
   await db.collection("operationalAudit").add({
     action,
@@ -281,6 +292,10 @@ export default async function handler(request, response) {
       loadOperationalCollection("Artist genre cache", () => db.collection("artistGenreCache").limit(1000).get()),
       loadOperationalCollection("Event suppressions", () => db.collection("eventSuppressions").orderBy("updatedAt", "desc").limit(200).get()),
     ]);
+    const collectionFailure = operationalCollectionFailure(collections);
+    if (collectionFailure) {
+      return response.status(503).json({ error: collectionFailure });
+    }
     const [sources, jobs, candidates, runs, audits, searches, genreCaches, suppressions] = collections;
     return response.status(200).json({
       ...buildOperationalDiagnostics({
