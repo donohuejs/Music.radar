@@ -136,8 +136,9 @@ Invoke-RestMethod `
 
 Both operations also run on schedules. The genre workflow repeatedly requests
 batches of four and follows Firestore page cursors until the complete eligible
-backlog is drained, with an 80-batch safety limit so persistent provider failures
-remain visible. Manual calls are useful
+backlog is drained. It saves its cursor between workflow runs, processes at most
+80 batches per run, and resumes on the next schedule; provider and API failures
+still fail visibly without discarding completed progress. Manual calls are useful
 immediately after deploying normalization changes or when diagnosing data gaps.
 
 The `Discover local event sources` GitHub workflow can also be started manually

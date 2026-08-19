@@ -8,18 +8,33 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: genre-enrichment
+  cancel-in-progress: false
+
 jobs:
   enrich:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Restore enrichment cursor
+        uses: actions/cache/restore@v4
+        with:
+          path: .genre-enrichment-cursor
+          key: genre-enrichment-${{ github.run_id }}
+          restore-keys: |
+            genre-enrichment-
       - name: Enrich uncategorized artists in bounded batches
         env:
           MUSIC_RADAR_INGEST_SECRET: ${{ secrets.MUSIC_RADAR_INGEST_SECRET }}
         run: |
           test -n "$MUSIC_RADAR_INGEST_SECRET"
           drained=false
-          cursor=""
+          touch .genre-enrichment-cursor
+          cursor=$(cat .genre-enrichment-cursor)
+          if [ -n "$cursor" ]; then
+            echo "Resuming genre enrichment after the saved cursor."
+          fi
           for batch in $(seq 1 80); do
             body=$(jq --null-input --compact-output --arg cursor "$cursor" \
               '{limit: 4} + if $cursor == "" then {} else {cursor: $cursor} end')
@@ -47,13 +62,24 @@ jobs:
             next_cursor=$(echo "$response" | jq --raw-output '.nextCursor // empty')
             if [ "$scan_complete" = "true" ]; then
               drained=true
+              : > .genre-enrichment-cursor
               echo "Genre enrichment backlog is drained."
               break
             fi
+            if [ -z "$next_cursor" ]; then
+              echo "Genre enrichment returned no cursor for an incomplete scan." >&2
+              exit 1
+            fi
             cursor="$next_cursor"
+            printf '%s' "$cursor" > .genre-enrichment-cursor
             sleep 2
           done
           if [ "$drained" != "true" ]; then
-            echo "Genre enrichment reached its 80-batch safety limit before draining." >&2
-            exit 1
+            echo "Genre enrichment reached its 80-batch per-run limit; the next run will resume from the saved cursor."
           fi
+      - name: Save enrichment cursor
+        if: ${{ always() }}
+        uses: actions/cache/save@v4
+        with:
+          path: .genre-enrichment-cursor
+          key: genre-enrichment-${{ github.run_id }}

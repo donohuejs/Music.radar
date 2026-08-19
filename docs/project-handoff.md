@@ -100,8 +100,10 @@ poster/PDF assets.
   batches of four while following event-page cursors until the complete
   eligible collection has been scanned. Event pages are capped to the same
   four-document lookup budget so successful batches always advance without
-  skipping events or repeatedly reading a large partial page. An 80-batch
-  safety limit fails visibly during persistent provider errors.
+  skipping events or repeatedly reading a large partial page. The workflow
+  caches its cursor, resumes it across scheduled runs, and stops successfully
+  after 80 batches per run. API and provider failures still fail the run, while
+  the always-run cache step preserves the last successfully completed page.
 - Both GitHub workflows use `MUSIC_RADAR_INGEST_SECRET`.
 
 ## Security and operations
