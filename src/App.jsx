@@ -4,12 +4,19 @@ import { calendarDays, parseLocalDate, toLocalDateValue } from "./lib/calendar.j
 import {
   confidenceExplanation,
   filterAndSortEvents,
+  filterUpcomingEvents,
   groupTheaterRuns,
   scanButtonLabel,
 } from "./lib/eventDisplay.js";
 import LocationAutocomplete from "./LocationAutocomplete.jsx";
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100];
+const PROXIMITY_PRESETS = [
+  { label: "Walkable", value: "walkable", miles: 1.5 },
+  { label: "Short trip", value: "short-trip", miles: 5 },
+  { label: "Across town", value: "across-town", miles: 10 },
+];
+const PROXIMITY_STORAGE_KEY = "music-radar-proximity";
 const DATE_OPTIONS = [
   { label: "Tonight", value: "tonight" },
   { label: "Tomorrow", value: "tomorrow" },
@@ -28,6 +35,24 @@ const CATEGORY_OPTIONS = [
   { label: "All events", value: "all" },
 ];
 const RESULTS_PAGE_SIZE = 24;
+
+function loadProximityPreference() {
+  const fallback = { mode: "all", customMiles: "3" };
+  if (typeof window === "undefined") return fallback;
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(PROXIMITY_STORAGE_KEY));
+    const validModes = ["all", "custom", ...PROXIMITY_PRESETS.map((option) => option.value)];
+    const customMiles = Number(stored?.customMiles);
+    return {
+      mode: validModes.includes(stored?.mode) ? stored.mode : fallback.mode,
+      customMiles: Number.isFinite(customMiles) && customMiles > 0
+        ? String(customMiles)
+        : fallback.customMiles,
+    };
+  } catch {
+    return fallback;
+  }
+}
 
 function formatDate(value) {
   if (!value) return "Time TBD";
@@ -274,6 +299,8 @@ export default function App() {
   const [genre, setGenre] = useState("all");
   const [resultQuery, setResultQuery] = useState("");
   const [resultSort, setResultSort] = useState("date");
+  const [proximity, setProximity] = useState(loadProximityPreference);
+  const [currentTime, setCurrentTime] = useState(Date.now());
   const [visibleCount, setVisibleCount] = useState(RESULTS_PAGE_SIZE);
   const [events, setEvents] = useState([]);
   const [searchMeta, setSearchMeta] = useState(null);
@@ -282,7 +309,28 @@ export default function App() {
   const [locationStatus, setLocationStatus] = useState("idle");
   const [locationMessage, setLocationMessage] = useState("");
 
-  const displayedEvents = useMemo(() => groupTheaterRuns(events), [events]);
+  const resultRadius = Number(searchMeta?.radiusMiles) || radius;
+  const resultsUseCurrentLocation = searchMeta?.resolvedLocation?.source === "browser";
+  const availableProximityPresets = useMemo(
+    () => PROXIMITY_PRESETS.filter((option) => option.miles < resultRadius),
+    [resultRadius],
+  );
+  const selectedPreset = PROXIMITY_PRESETS.find((option) => option.value === proximity.mode);
+  const customDistance = Math.min(
+    Math.max(Number(proximity.customMiles) || 0.5, 0.5),
+    resultRadius,
+  );
+  const maxDistance = proximity.mode === "custom"
+    ? customDistance
+    : proximity.mode === "all"
+      ? null
+      : Math.min(selectedPreset?.miles || resultRadius, resultRadius);
+
+  const upcomingEvents = useMemo(
+    () => filterUpcomingEvents(events, currentTime),
+    [currentTime, events],
+  );
+  const displayedEvents = useMemo(() => groupTheaterRuns(upcomingEvents), [upcomingEvents]);
 
   const genreOptions = useMemo(() => {
     const counts = new Map();
@@ -295,13 +343,49 @@ export default function App() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [displayedEvents]);
+  const matchingEvents = useMemo(
+    () => filterAndSortEvents(displayedEvents, { genre, query: resultQuery }),
+    [displayedEvents, genre, resultQuery],
+  );
   const filteredEvents = useMemo(
-    () => filterAndSortEvents(displayedEvents, { genre, query: resultQuery, sort: resultSort }),
-    [displayedEvents, genre, resultQuery, resultSort],
+    () => filterAndSortEvents(displayedEvents, {
+      genre,
+      query: resultQuery,
+      sort: resultSort,
+      maxDistance,
+    }),
+    [displayedEvents, genre, maxDistance, resultQuery, resultSort],
   );
   const visibleEvents = filteredEvents.slice(0, visibleCount);
 
-  useEffect(() => setVisibleCount(RESULTS_PAGE_SIZE), [genre, resultQuery, resultSort, events]);
+  useEffect(() => setVisibleCount(RESULTS_PAGE_SIZE), [genre, proximity, resultQuery, resultSort, events]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PROXIMITY_STORAGE_KEY, JSON.stringify(proximity));
+    } catch {
+      // Search still works when storage is unavailable or disabled.
+    }
+  }, [proximity]);
+
+  useEffect(() => {
+    if (status !== "success") return undefined;
+    const refreshCurrentTime = () => setCurrentTime(Date.now());
+    refreshCurrentTime();
+    const intervalId = window.setInterval(refreshCurrentTime, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, [status]);
+
+  useEffect(() => {
+    if (status !== "success" || !searchMeta) return;
+    setProximity((current) => {
+      const preset = PROXIMITY_PRESETS.find((option) => option.value === current.mode);
+      const nextMode = preset && preset.miles >= resultRadius ? "all" : current.mode;
+      const nextCustomMiles = Math.min(Number(current.customMiles) || 3, resultRadius);
+      if (nextMode === current.mode && String(nextCustomMiles) === current.customMiles) return current;
+      return { mode: nextMode, customMiles: String(nextCustomMiles) };
+    });
+  }, [resultRadius, searchMeta, status]);
 
   const resultSummary = useMemo(() => {
     if (status === "loading") return "Scanning nearby sources…";
@@ -526,6 +610,75 @@ export default function App() {
 
         {status === "success" && displayedEvents.length ? (
           <div className="result-tools" aria-label="Refine search results">
+            <div className="proximity-filter">
+              <div className="proximity-filter__heading">
+                <strong>{resultsUseCurrentLocation ? "Distance from you" : "Distance from search center"}</strong>
+                <small>Filters these results; the scan still covers {resultRadius} miles.</small>
+              </div>
+              <div className="proximity-options" role="group" aria-label="Filter results by distance">
+                <button
+                  className={proximity.mode === "all" ? "is-active" : ""}
+                  type="button"
+                  onClick={() => setProximity((current) => ({ ...current, mode: "all" }))}
+                  aria-pressed={proximity.mode === "all"}
+                >
+                  All ({matchingEvents.length})
+                </button>
+                {availableProximityPresets.map((option) => {
+                  const count = matchingEvents.filter((event) =>
+                    Number.isFinite(event.distanceMiles) && event.distanceMiles <= option.miles
+                  ).length;
+                  return (
+                    <button
+                      className={proximity.mode === option.value ? "is-active" : ""}
+                      key={option.value}
+                      type="button"
+                      onClick={() => setProximity((current) => ({ ...current, mode: option.value }))}
+                      aria-pressed={proximity.mode === option.value}
+                    >
+                      {option.label} · ≤{option.miles} mi ({count})
+                    </button>
+                  );
+                })}
+                <button
+                  className={proximity.mode === "custom" ? "is-active" : ""}
+                  type="button"
+                  onClick={() => setProximity((current) => ({ ...current, mode: "custom" }))}
+                  aria-pressed={proximity.mode === "custom"}
+                >
+                  Custom
+                </button>
+              </div>
+              {proximity.mode === "custom" ? (
+                <label className="custom-distance">
+                  Within
+                  <input
+                    type="number"
+                    min="0.5"
+                    max={resultRadius}
+                    step="0.5"
+                    value={proximity.customMiles}
+                    onChange={(event) => setProximity((current) => ({
+                      ...current,
+                      customMiles: event.target.value,
+                    }))}
+                    onBlur={() => setProximity((current) => ({
+                      ...current,
+                      customMiles: String(customDistance),
+                    }))}
+                    aria-label="Custom distance in miles"
+                  />
+                  miles ({matchingEvents.filter((event) =>
+                    Number.isFinite(event.distanceMiles) && event.distanceMiles <= customDistance
+                  ).length})
+                </label>
+              ) : null}
+              {!resultsUseCurrentLocation ? (
+                <small className="proximity-filter__note">
+                  Use current location for an accurate “from you” distance.
+                </small>
+              ) : null}
+            </div>
             <label>
               Find in results
               <input
@@ -555,8 +708,12 @@ export default function App() {
 
         {status === "success" && filteredEvents.length === 0 ? (
           <div className="empty-state">
-            <h2>{displayedEvents.length ? "No events match those filters." : "No events found yet."}</h2>
-            <p>{displayedEvents.length ? "Clear the results search or choose another genre." : "Try a larger radius or broader date range. This result may also indicate a coverage gap."}</p>
+            <h2>{displayedEvents.length ? "No events match those filters." : events.length ? "No upcoming events remain." : "No events found yet."}</h2>
+            <p>{displayedEvents.length
+              ? "Clear a results filter or choose a wider distance."
+              : events.length
+                ? "Events are removed automatically after their start time."
+                : "Try a larger radius or broader date range. This result may also indicate a coverage gap."}</p>
           </div>
         ) : null}
 

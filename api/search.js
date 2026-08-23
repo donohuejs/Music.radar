@@ -23,6 +23,17 @@ function validateDate(value, fallback) {
   return Number.isNaN(date.getTime()) ? fallback : date;
 }
 
+export function effectiveSearchStart(startDate, endDate, currentTime = new Date()) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const now = new Date(currentTime);
+
+  if (end.getTime() >= now.getTime() && start.getTime() < now.getTime()) {
+    return now;
+  }
+  return start;
+}
+
 export async function settledSource(name, operation, fallback, { timeoutMs = 15000 } = {}) {
   let timeout;
   try {
@@ -113,8 +124,9 @@ export default async function handler(request, response) {
   const oneWeek = new Date(now);
   oneWeek.setDate(oneWeek.getDate() + 7);
 
-  const startDate = validateDate(request.query.startDate, now);
+  const requestedStartDate = validateDate(request.query.startDate, now);
   const endDate = validateDate(request.query.endDate, oneWeek);
+  const startDate = effectiveSearchStart(requestedStartDate, endDate, now);
   const requestedLat = parseNumber(request.query.lat);
   const requestedLng = parseNumber(request.query.lng);
   const radius = Math.min(

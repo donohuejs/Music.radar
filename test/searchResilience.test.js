@@ -1,6 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { initializeSearchDb, settledSource } from "../api/search.js";
+import {
+  effectiveSearchStart,
+  initializeSearchDb,
+  settledSource,
+} from "../api/search.js";
+
+test("clamps a current search to now but preserves a historical range", () => {
+  const now = new Date("2026-08-23T18:05:00.000Z");
+  assert.equal(
+    effectiveSearchStart(
+      new Date("2026-08-23T04:00:00.000Z"),
+      new Date("2026-08-24T03:59:59.999Z"),
+      now,
+    ).toISOString(),
+    now.toISOString(),
+  );
+  assert.equal(
+    effectiveSearchStart(
+      new Date("2026-08-20T04:00:00.000Z"),
+      new Date("2026-08-21T03:59:59.999Z"),
+      now,
+    ).toISOString(),
+    "2026-08-20T04:00:00.000Z",
+  );
+});
 
 test("degrades gracefully when Firebase Admin cannot initialize", () => {
   const result = initializeSearchDb(() => {

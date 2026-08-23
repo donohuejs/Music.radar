@@ -1,5 +1,5 @@
-export function getDateRange(option, customStart, customEnd) {
-  const now = new Date();
+export function getDateRange(option, customStart, customEnd, currentTime = new Date()) {
+  const now = new Date(currentTime);
   const start = new Date(now);
   const end = new Date(now);
 
@@ -20,7 +20,6 @@ export function getDateRange(option, customStart, customEnd) {
       endDate: customEndDate.toISOString(),
     };
   } else if (option === "tonight") {
-    start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
   } else if (option === "tomorrow") {
     start.setDate(start.getDate() + 1);

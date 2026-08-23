@@ -16,8 +16,9 @@ list.
 User search
   -> geocode or browser coordinates
   -> indexed Firestore events + Ticketmaster
-  -> distance/date/category filtering and deduplication
+  -> upcoming-only distance/date/category filtering and deduplication
   -> immediate results
+  -> client-side proximity filtering and automatic expiry of started events
   -> asynchronous geographic source-discovery queue
 
 Scheduled workers

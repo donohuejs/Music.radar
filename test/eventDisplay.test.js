@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   confidenceExplanation,
   filterAndSortEvents,
+  filterUpcomingEvents,
   groupTheaterRuns,
   scanButtonLabel,
 } from "../src/lib/eventDisplay.js";
@@ -19,6 +20,23 @@ test("filters dense results by venue text and sorts them by distance", () => {
     ["near", "mid"],
   );
   assert.deepEqual(filterAndSortEvents(events, { genre: "Rock" }).map((event) => event.id), ["far", "mid"]);
+  assert.deepEqual(
+    filterAndSortEvents(events, { maxDistance: 4 }).map((event) => event.id),
+    ["near", "mid"],
+  );
+});
+
+test("removes events once their start time has passed", () => {
+  const events = [
+    { id: "past", startTime: "2026-08-23T12:00:00-04:00" },
+    { id: "now", startTime: "2026-08-23T14:05:00-04:00" },
+    { id: "later", startTime: "2026-08-23T20:00:00-04:00" },
+  ];
+
+  assert.deepEqual(
+    filterUpcomingEvents(events, "2026-08-23T14:05:00-04:00").map((event) => event.id),
+    ["now", "later"],
+  );
 });
 
 test("uses the selected category in the scan button", () => {

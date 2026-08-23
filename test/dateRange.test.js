@@ -32,3 +32,16 @@ test("builds next 14 and next 30 day ranges", () => {
     assert.equal(end.getHours(), 23);
   }
 });
+
+test("starts tonight at the current time instead of midnight", () => {
+  const now = new Date(2026, 7, 23, 14, 5, 30, 250);
+  const range = getDateRange("tonight", "", "", now);
+
+  assert.equal(range.startDate, now.toISOString());
+  const end = new Date(range.endDate);
+  assert.equal(end.getFullYear(), now.getFullYear());
+  assert.equal(end.getMonth(), now.getMonth());
+  assert.equal(end.getDate(), now.getDate());
+  assert.equal(end.getHours(), 23);
+  assert.equal(end.getMinutes(), 59);
+});

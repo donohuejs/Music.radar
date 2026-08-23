@@ -11,10 +11,27 @@ export function scanButtonLabel(category) {
   return CATEGORY_SCAN_LABELS[category] || "Scan for events";
 }
 
-export function filterAndSortEvents(events = [], { genre = "all", query = "", sort = "date" } = {}) {
+export function filterUpcomingEvents(events = [], currentTime = Date.now()) {
+  const now = new Date(currentTime).getTime();
+  if (!Number.isFinite(now)) return [...events];
+
+  return events.filter((event) => {
+    const start = new Date(event?.startTime).getTime();
+    return Number.isFinite(start) && start >= now;
+  });
+}
+
+export function filterAndSortEvents(
+  events = [],
+  { genre = "all", query = "", sort = "date", maxDistance = null } = {},
+) {
   const needle = String(query).trim().toLocaleLowerCase();
   const filtered = events.filter((event) => {
     if (genre !== "all" && !(event.genres || []).includes(genre)) return false;
+    if (
+      Number.isFinite(maxDistance) &&
+      (!Number.isFinite(event.distanceMiles) || event.distanceMiles > maxDistance)
+    ) return false;
     if (!needle) return true;
     return [event.name, event.venueName, event.city, event.state, ...(event.genres || [])]
       .some((value) => String(value || "").toLocaleLowerCase().includes(needle));
