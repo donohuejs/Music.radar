@@ -4,7 +4,7 @@ import {
   attachDistanceAndFilter,
   mergeAndDedupe,
 } from "../lib/server/events.js";
-import { geocodeLocation } from "../lib/server/geocode.js";
+import { geocodeLocation, timeZoneForCoordinates } from "../lib/server/geocode.js";
 import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 import { fetchTicketmasterEvents } from "../lib/server/ticketmaster.js";
 import { EVENT_CATEGORIES } from "../lib/server/eventCategory.js";
@@ -12,6 +12,7 @@ import { searchGeoCells } from "../lib/server/geoCells.js";
 import { queueDiscoveryJobsForArea } from "../lib/server/discoveryStore.js";
 import { recordSearchCoverage } from "../lib/server/searchCoverage.js";
 import { applyDiscogsDisplayCompliance } from "../lib/server/discogsCompliance.js";
+import { getZonedDateRange } from "../lib/server/zonedDateRange.js";
 
 function parseNumber(value) {
   const parsed = Number(value);
@@ -32,6 +33,36 @@ export function effectiveSearchStart(startDate, endDate, currentTime = new Date(
     return now;
   }
   return start;
+}
+
+export function resolveRequestedDateRange(query, timeZone, currentTime = new Date()) {
+  const option = String(query.dateOption || "").trim().toLowerCase();
+  if (["tonight", "tomorrow", "weekend", "week", "fortnight", "month", "custom"].includes(option)) {
+    const range = getZonedDateRange(
+      option,
+      query.customStart,
+      query.customEnd,
+      timeZone,
+      currentTime,
+    );
+    const endDate = new Date(range.endDate);
+    return {
+      requestedStartDate: new Date(range.startDate),
+      startDate: effectiveSearchStart(range.startDate, endDate, currentTime),
+      endDate,
+    };
+  }
+
+  const now = new Date(currentTime);
+  const oneWeek = new Date(now);
+  oneWeek.setDate(oneWeek.getDate() + 7);
+  const requestedStartDate = validateDate(query.startDate, now);
+  const endDate = validateDate(query.endDate, oneWeek);
+  return {
+    requestedStartDate,
+    startDate: effectiveSearchStart(requestedStartDate, endDate, now),
+    endDate,
+  };
 }
 
 export async function settledSource(name, operation, fallback, { timeoutMs = 15000 } = {}) {
@@ -105,6 +136,7 @@ async function resolveSearchLocation({ lat, lng, location }) {
     return {
       latitude: lat,
       longitude: lng,
+      timeZone: timeZoneForCoordinates(lat, lng),
       displayName: location || "Current location",
       source: "browser",
     };
@@ -121,12 +153,6 @@ export default async function handler(request, response) {
   }
 
   const now = new Date();
-  const oneWeek = new Date(now);
-  oneWeek.setDate(oneWeek.getDate() + 7);
-
-  const requestedStartDate = validateDate(request.query.startDate, now);
-  const endDate = validateDate(request.query.endDate, oneWeek);
-  const startDate = effectiveSearchStart(requestedStartDate, endDate, now);
   const requestedLat = parseNumber(request.query.lat);
   const requestedLng = parseNumber(request.query.lng);
   const radius = Math.min(
@@ -156,6 +182,11 @@ export default async function handler(request, response) {
     });
     const lat = resolvedLocation.latitude;
     const lng = resolvedLocation.longitude;
+    const { requestedStartDate, startDate, endDate } = resolveRequestedDateRange(
+      request.query,
+      resolvedLocation.timeZone,
+      now,
+    );
     const { db, error: firebaseInitializationError } = initializeSearchDb();
     const indexedSearchEnabled =
       process.env.INDEXED_SEARCH_ENABLED === "true" && Boolean(db);
@@ -270,7 +301,11 @@ export default async function handler(request, response) {
           longitude: lng,
           displayName: resolvedLocation.displayName,
           source: resolvedLocation.source,
+          timeZone: resolvedLocation.timeZone,
         },
+        requestedStartDate: requestedStartDate.toISOString(),
+        searchStartDate: startDate.toISOString(),
+        searchEndDate: endDate.toISOString(),
         radiusMiles: radius,
         category,
         searchMode: indexedSearchEnabled ? "indexed" : "hybrid-live",
@@ -307,9 +342,12 @@ export default async function handler(request, response) {
       /could not find|location lookup|location service|enter a city/i.test(
         error.message || "",
       );
+    const isDateError = /valid custom date range|valid current time/i.test(
+      error.message || "",
+    );
 
-    return response.status(isLocationError ? 400 : 500).json({
-      error: isLocationError
+    return response.status(isLocationError || isDateError ? 400 : 500).json({
+      error: isLocationError || isDateError
         ? error.message
         : "Music Radar could not complete the search.",
       detail:

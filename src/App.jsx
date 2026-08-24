@@ -9,6 +9,7 @@ import {
   scanButtonLabel,
 } from "./lib/eventDisplay.js";
 import { buildProximityModel, PROXIMITY_PRESETS } from "./lib/proximityFilters.js";
+import { formatEventDate, formatTheaterRun } from "./lib/eventDate.js";
 import LocationAutocomplete from "./LocationAutocomplete.jsx";
 import ResultFilters from "./ResultFilters.jsx";
 
@@ -49,34 +50,6 @@ function loadProximityPreference() {
   } catch {
     return fallback;
   }
-}
-
-function formatDate(value) {
-  if (!value) return "Time TBD";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "Time TBD";
-
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function formatTheaterRun(startValue, endValue) {
-  const start = new Date(startValue);
-  const end = new Date(endValue);
-  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
-    return formatDate(startValue);
-  }
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-  return `${formatter.format(start)} – ${formatter.format(end)}`;
 }
 
 function localDateInput(date = new Date()) {
@@ -216,7 +189,7 @@ function CalendarPicker({ mode, start, end, onStartChange, onEndChange }) {
   );
 }
 
-function EventCard({ event }) {
+function EventCard({ event, timeZone }) {
   const confidenceId = useId();
 
   return (
@@ -232,8 +205,8 @@ function EventCard({ event }) {
       <div className="event-card__body">
         <div className="event-card__eyebrow">
           {event.runEndTime
-            ? formatTheaterRun(event.startTime, event.runEndTime)
-            : formatDate(event.startTime)}
+            ? formatTheaterRun(event.startTime, event.runEndTime, timeZone)
+            : formatEventDate(event.startTime, timeZone)}
           {event.performanceCount ? ` · ${event.performanceCount} performances` : ""}
           {Number.isFinite(event.distanceMiles)
             ? ` · ${event.distanceMiles.toFixed(1)} mi`
@@ -447,8 +420,13 @@ export default function App() {
       radius: String(radius),
       startDate: dates.startDate,
       endDate: dates.endDate,
+      dateOption,
       category,
     });
+    if (dateOption === "custom") {
+      params.set("customStart", customStart);
+      params.set("customEnd", customEnd);
+    }
 
     if (coordinates) {
       params.set("lat", String(coordinates.latitude));
@@ -632,7 +610,13 @@ export default function App() {
         ) : null}
 
         <div className="event-grid">
-          {visibleEvents.map((event) => <EventCard key={event.id} event={event} />)}
+          {visibleEvents.map((event) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              timeZone={searchMeta?.resolvedLocation?.timeZone}
+            />
+          ))}
         </div>
         {visibleEvents.length < filteredEvents.length ? (
           <button className="button load-more" type="button" onClick={() => setVisibleCount((count) => count + RESULTS_PAGE_SIZE)}>
