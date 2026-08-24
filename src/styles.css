@@ -116,6 +116,8 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
 .results__header { margin-bottom: 24px; }
 .results__kicker { margin: 0 0 7px; color: #b1ff47; font-weight: 900; letter-spacing: .14em; font-size: .76rem; }
 .results h2 { margin: 0; }
+.results__context { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0 0; padding: 0; color: #aab3b8; list-style: none; }
+.results__context li { padding: 5px 9px; background: #131719; border: 1px solid #30363b; border-radius: 999px; font-size: .76rem; font-weight: 700; }
 .genre-filters { display: flex; flex-wrap: wrap; gap: 8px; }
 .genre-filters button { padding: 8px 12px; color: #c8d0d4; background: #171b1e; border: 1px solid #343b40; border-radius: 999px; cursor: pointer; font-size: .78rem; font-weight: 800; }
 .genre-filters button:hover { color: #fff; border-color: #68747b; }

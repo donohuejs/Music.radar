@@ -47,6 +47,7 @@ export function resolveRequestedDateRange(query, timeZone, currentTime = new Dat
     );
     const endDate = new Date(range.endDate);
     return {
+      dateOption: option,
       requestedStartDate: new Date(range.startDate),
       startDate: effectiveSearchStart(range.startDate, endDate, currentTime),
       endDate,
@@ -59,6 +60,7 @@ export function resolveRequestedDateRange(query, timeZone, currentTime = new Dat
   const requestedStartDate = validateDate(query.startDate, now);
   const endDate = validateDate(query.endDate, oneWeek);
   return {
+    dateOption: null,
     requestedStartDate,
     startDate: effectiveSearchStart(requestedStartDate, endDate, now),
     endDate,
@@ -183,7 +185,7 @@ export default async function handler(request, response) {
     });
     const lat = resolvedLocation.latitude;
     const lng = resolvedLocation.longitude;
-    const { requestedStartDate, startDate, endDate } = resolveRequestedDateRange(
+    const { dateOption: resolvedDateOption, requestedStartDate, startDate, endDate } = resolveRequestedDateRange(
       request.query,
       resolvedLocation.timeZone,
       now,
@@ -307,6 +309,9 @@ export default async function handler(request, response) {
         requestedStartDate: requestedStartDate.toISOString(),
         searchStartDate: startDate.toISOString(),
         searchEndDate: endDate.toISOString(),
+        dateOption: resolvedDateOption,
+        customStartDate: resolvedDateOption === "custom" ? request.query.customStart : null,
+        customEndDate: resolvedDateOption === "custom" ? request.query.customEnd : null,
         radiusMiles: radius,
         category,
         searchMode: indexedSearchEnabled ? "indexed" : "hybrid-live",

@@ -16,6 +16,7 @@ import {
 } from "./lib/eventDisplay.js";
 import { buildProximityModel, PROXIMITY_PRESETS } from "./lib/proximityFilters.js";
 import { formatEventDate, formatTheaterRun } from "./lib/eventDate.js";
+import { buildSearchContext } from "./lib/searchContext.js";
 import LocationAutocomplete from "./LocationAutocomplete.jsx";
 import ResultFilters from "./ResultFilters.jsx";
 
@@ -285,6 +286,7 @@ export default function App() {
 
   const resultRadius = Number(searchMeta?.radiusMiles) || radius;
   const resultsUseCurrentLocation = searchMeta?.resolvedLocation?.source === "browser";
+  const searchContext = useMemo(() => buildSearchContext(searchMeta), [searchMeta]);
   const {
     availablePresets: availableProximityPresets,
     customDistance,
@@ -642,6 +644,11 @@ export default function App() {
           <div>
             <p className="results__kicker">RADAR RESULTS</p>
             <h2>{resultSummary}</h2>
+            {searchContext.length ? (
+              <ul className="results__context" aria-label="Search details">
+                {searchContext.map((detail) => <li key={detail}>{detail}</li>)}
+              </ul>
+            ) : null}
           </div>
         </div>
 
