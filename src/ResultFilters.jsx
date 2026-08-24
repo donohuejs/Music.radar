@@ -35,7 +35,7 @@ export default function ResultFilters({
   }
 
   return (
-    <div className="filter-menu-bar">
+    <div className="filter-menu-bar" role="group" aria-label="Genre and distance filters">
       <ResultFilterMenu
         name="genre"
         label="Genre"

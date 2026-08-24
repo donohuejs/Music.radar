@@ -653,7 +653,7 @@ export default function App() {
         </div>
 
         {status === "success" && displayedEvents.length ? (
-          <div className="result-tools" aria-label="Refine search results">
+          <>
             <ResultFilters
               availableProximityPresets={availableProximityPresets}
               customDistance={customDistance}
@@ -668,23 +668,25 @@ export default function App() {
               setGenre={setGenre}
               setProximity={setProximity}
             />
-            <label>
-              Find in results
-              <input
-                type="search"
-                value={resultQuery}
-                onChange={(event) => setResultQuery(event.target.value)}
-                placeholder="Artist, venue, neighborhood, or genre"
-              />
-            </label>
-            <label>
-              Sort by
-              <select value={resultSort} onChange={(event) => setResultSort(event.target.value)}>
-                <option value="date">Soonest</option>
-                <option value="distance">Nearest</option>
-              </select>
-            </label>
-          </div>
+            <div className="result-tools" role="group" aria-label="Search and sort results">
+              <label>
+                Find in results
+                <input
+                  type="search"
+                  value={resultQuery}
+                  onChange={(event) => setResultQuery(event.target.value)}
+                  placeholder="Artist, venue, neighborhood, or genre"
+                />
+              </label>
+              <label>
+                Sort by
+                <select value={resultSort} onChange={(event) => setResultSort(event.target.value)}>
+                  <option value="date">Soonest</option>
+                  <option value="distance">Nearest</option>
+                </select>
+              </label>
+            </div>
+          </>
         ) : null}
 
         {status === "success" && (searchMeta?.ticketmasterTruncated || searchMeta?.discoveryQueued) ? (

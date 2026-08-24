@@ -122,8 +122,8 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
 .genre-filters button { padding: 8px 12px; color: #c8d0d4; background: #171b1e; border: 1px solid #343b40; border-radius: 999px; cursor: pointer; font-size: .78rem; font-weight: 800; }
 .genre-filters button:hover { color: #fff; border-color: #68747b; }
 .genre-filters button.is-active { color: #111; background: #b1ff47; border-color: #b1ff47; }
-.result-tools { display: grid; grid-template-columns: minmax(260px, 1fr) 180px; gap: 14px; margin: 0 0 20px; padding: 16px; background: #101416; border: 1px solid #293036; border-radius: 14px; }
-.filter-menu-bar { position: relative; z-index: 10; display: grid; grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.result-tools { display: grid; grid-template-columns: minmax(260px, 1fr) 180px; gap: 14px; margin: 10px 0 20px; padding: 16px; background: #101416; border: 1px solid #293036; border-radius: 14px; }
+.filter-menu-bar { position: relative; z-index: 10; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 16px; background: #101416; border: 1px solid #293036; border-radius: 14px; }
 .filter-menu { position: relative; min-width: 0; }
 .filter-menu__trigger { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; width: 100%; padding: 11px 13px; color: #e9edef; background: #171b1e; border: 1px solid #394047; border-radius: 10px; cursor: pointer; text-align: left; }
 .filter-menu__trigger > span:first-child { color: #8f999f; font-size: .7rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
@@ -264,6 +264,19 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
   .result-tools { grid-template-columns: 1fr; }
 }
 @media (max-width: 800px), (hover: none), (pointer: coarse) {
+  .filter-menu-bar {
+    position: sticky;
+    z-index: 20;
+    top: max(8px, env(safe-area-inset-top));
+    padding: 10px;
+    background: rgba(16, 20, 22, .94);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .42);
+    backdrop-filter: blur(12px);
+  }
+  .filter-menu__trigger { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; }
+  .filter-menu__trigger > span:first-child, .filter-menu__trigger strong { grid-column: 1; }
+  .filter-menu__trigger strong { max-width: 100%; }
+  .filter-menu__chevron { grid-column: 2; grid-row: 1 / span 2; }
   .filter-menu__backdrop { position: fixed; z-index: 29; inset: 0; display: block; width: 100%; height: 100%; padding: 0; background: rgba(0, 0, 0, .68); border: 0; }
   .filter-menu__popover { position: fixed; z-index: 30; top: auto; right: 12px; bottom: 12px; left: 12px; width: auto; max-height: min(72vh, 620px); overflow-y: auto; padding: 18px; border-radius: 18px; }
   .filter-menu--right .filter-menu__popover { right: 12px; left: 12px; }
