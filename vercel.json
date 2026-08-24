@@ -3,6 +3,9 @@
     "api/search.js": {
       "maxDuration": 30
     },
+    "api/travel-times.js": {
+      "maxDuration": 15
+    },
     "api/ingest-ticketmaster.js": {
       "maxDuration": 60
     },

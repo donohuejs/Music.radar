@@ -146,6 +146,19 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
 .proximity-filter__heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; align-items: baseline; }
 .proximity-filter__heading strong { color: #e9edef; font-size: .84rem; letter-spacing: .08em; text-transform: uppercase; }
 .proximity-filter__heading small, .proximity-filter__note { color: #89949a; line-height: 1.4; }
+.travel-mode-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.travel-mode-options button { padding: 10px; color: #c8d0d4; background: #171b1e; border: 1px solid #343b40; border-radius: 9px; cursor: pointer; font-size: .78rem; font-weight: 800; }
+.travel-mode-options button:hover:not(:disabled) { color: #fff; border-color: #68747b; }
+.travel-mode-options button.is-active { color: #111; background: #b1ff47; border-color: #b1ff47; }
+.travel-mode-options button:disabled { cursor: not-allowed; opacity: .45; }
+.travel-time-control { display: grid; gap: 9px; padding: 12px; background: #0b0e10; border: 1px solid #30363b; border-radius: 10px; }
+.travel-time-control label { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+.travel-time-control label strong { color: #b1ff47; font-size: .78rem; white-space: nowrap; }
+.travel-time-control input[type="range"] { width: 100%; padding: 0; accent-color: #b1ff47; background: transparent; border: 0; box-shadow: none; }
+.travel-time-control small { color: #89949a; }
+.travel-time-control__fallback { justify-self: start; padding: 2px 0; color: #b1ff47; background: transparent; border: 0; cursor: pointer; font-size: .75rem; font-weight: 800; }
+.travel-time-control__fallback:hover { text-decoration: underline; text-underline-offset: 3px; }
+.proximity-filter__divider { height: 1px; margin: 3px 0; background: #30363b; }
 .proximity-options { display: flex; flex-wrap: wrap; gap: 8px; }
 .proximity-options button { padding: 9px 12px; color: #c8d0d4; background: #171b1e; border: 1px solid #343b40; border-radius: 999px; cursor: pointer; font-size: .78rem; font-weight: 800; }
 .proximity-options button:hover { color: #fff; border-color: #68747b; }

@@ -18,6 +18,14 @@ import { buildProximityModel, PROXIMITY_PRESETS } from "./lib/proximityFilters.j
 import { formatEventDate, formatTheaterRun } from "./lib/eventDate.js";
 import { buildSearchContext } from "./lib/searchContext.js";
 import { countActiveRefinements } from "./lib/resultRefinements.js";
+import {
+  attachTravelEstimates,
+  clampTravelMinutes,
+  countTravelMatches,
+  mapTravelEstimates,
+  TRAVEL_MODE_OPTIONS,
+  travelModeLabel,
+} from "./lib/travelTimeFilters.js";
 import LocationAutocomplete from "./LocationAutocomplete.jsx";
 import ResultFilters from "./ResultFilters.jsx";
 
@@ -41,6 +49,7 @@ const CATEGORY_OPTIONS = [
   { label: "All events", value: "all" },
 ];
 const RESULTS_PAGE_SIZE = 24;
+const EMPTY_TRAVEL_ESTIMATES = Object.freeze({});
 
 function loadProximityPreference() {
   const fallback = { mode: "all", customMiles: "3" };
@@ -214,6 +223,9 @@ function EventCard({ event, timeZone }) {
           {Number.isFinite(event.distanceMiles)
             ? ` · ${event.distanceMiles.toFixed(1)} mi`
             : ""}
+          {Number.isFinite(event.travelMinutes)
+            ? ` · ${event.travelMinutes} min ${travelModeLabel(event.travelMode).toLowerCase()}`
+            : ""}
         </div>
         <h2>{event.name}</h2>
         <p className="event-card__venue">
@@ -273,6 +285,13 @@ export default function App() {
   const [resultQuery, setResultQuery] = useState("");
   const [resultSort, setResultSort] = useState("date");
   const [proximity, setProximity] = useState(loadProximityPreference);
+  const [travelMode, setTravelMode] = useState("transit");
+  const [travelMinutes, setTravelMinutes] = useState(35);
+  const [travelEnabled, setTravelEnabled] = useState(false);
+  const [travelStatus, setTravelStatus] = useState("idle");
+  const [travelMessage, setTravelMessage] = useState("");
+  const [travelEstimatesByMode, setTravelEstimatesByMode] = useState({});
+  const [travelMeta, setTravelMeta] = useState(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [visibleCount, setVisibleCount] = useState(RESULTS_PAGE_SIZE);
   const [events, setEvents] = useState([]);
@@ -284,6 +303,7 @@ export default function App() {
   const [planningTimeZone, setPlanningTimeZone] = useState(null);
   const [planningTimeZoneStatus, setPlanningTimeZoneStatus] = useState("idle");
   const locationRequestId = useRef(0);
+  const travelRequestId = useRef(0);
 
   const resultRadius = Number(searchMeta?.radiusMiles) || radius;
   const resultsUseCurrentLocation = searchMeta?.resolvedLocation?.source === "browser";
@@ -293,7 +313,8 @@ export default function App() {
     proximityMode: proximity.mode,
     query: resultQuery,
     sort: resultSort,
-  }), [genre, proximity.mode, resultQuery, resultSort]);
+    travelEnabled,
+  }), [genre, proximity.mode, resultQuery, resultSort, travelEnabled]);
   const {
     availablePresets: availableProximityPresets,
     customDistance,
@@ -309,10 +330,15 @@ export default function App() {
     [currentTime, events],
   );
   const displayedEvents = useMemo(() => groupTheaterRuns(upcomingEvents), [upcomingEvents]);
+  const activeTravelEstimates = travelEstimatesByMode[travelMode] || EMPTY_TRAVEL_ESTIMATES;
+  const estimatedEvents = useMemo(
+    () => attachTravelEstimates(displayedEvents, activeTravelEstimates, travelMode),
+    [activeTravelEstimates, displayedEvents, travelMode],
+  );
 
   const genreOptions = useMemo(() => {
     const counts = new Map();
-    displayedEvents.forEach((event) => {
+    estimatedEvents.forEach((event) => {
       (event.genres || []).forEach((eventGenre) => {
         counts.set(eventGenre, (counts.get(eventGenre) || 0) + 1);
       });
@@ -320,23 +346,37 @@ export default function App() {
     return [...counts.entries()]
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [displayedEvents]);
+  }, [estimatedEvents]);
   const matchingEvents = useMemo(
-    () => filterAndSortEvents(displayedEvents, { genre, query: resultQuery }),
-    [displayedEvents, genre, resultQuery],
+    () => filterAndSortEvents(estimatedEvents, { genre, query: resultQuery }),
+    [estimatedEvents, genre, resultQuery],
   );
   const filteredEvents = useMemo(
-    () => filterAndSortEvents(displayedEvents, {
+    () => filterAndSortEvents(estimatedEvents, {
       genre,
       query: resultQuery,
       sort: resultSort,
-      maxDistance,
+      maxDistance: travelEnabled ? null : maxDistance,
+      maxTravelMinutes:
+        travelEnabled && travelStatus === "success" ? travelMinutes : null,
     }),
-    [displayedEvents, genre, maxDistance, resultQuery, resultSort],
+    [estimatedEvents, genre, maxDistance, resultQuery, resultSort, travelEnabled, travelMinutes, travelStatus],
   );
+  const travelMatchCount = useMemo(
+    () => countTravelMatches(matchingEvents, travelMinutes),
+    [matchingEvents, travelMinutes],
+  );
+  const resultFilterSummary = travelEnabled
+    ? travelStatus === "loading"
+      ? `${travelModeLabel(travelMode)} · calculating…`
+      : `${travelModeLabel(travelMode)} · ≤${travelMinutes} min`
+    : proximitySummary;
   const visibleEvents = filteredEvents.slice(0, visibleCount);
 
-  useEffect(() => setVisibleCount(RESULTS_PAGE_SIZE), [genre, proximity, resultQuery, resultSort, events]);
+  useEffect(
+    () => setVisibleCount(RESULTS_PAGE_SIZE),
+    [events, genre, proximity, resultQuery, resultSort, travelEnabled, travelMinutes, travelMode, travelStatus],
+  );
 
   useEffect(() => {
     try {
@@ -471,6 +511,13 @@ export default function App() {
     setGenre("all");
     setResultQuery("");
     setSearchMeta(null);
+    travelRequestId.current += 1;
+    setTravelEnabled(false);
+    setTravelStatus("idle");
+    setTravelMessage("");
+    setTravelEstimatesByMode({});
+    setTravelMeta(null);
+    if (resultSort === "travel") setResultSort("date");
 
     let dates;
     try {
@@ -531,11 +578,100 @@ export default function App() {
     }
   }
 
+  function useMileageFilters() {
+    travelRequestId.current += 1;
+    setTravelEnabled(false);
+    setTravelStatus("idle");
+    setTravelMessage("");
+    setResultSort((current) => current === "travel" ? "date" : current);
+  }
+
+  function disableTravel(message) {
+    setTravelEnabled(false);
+    setTravelStatus("unavailable");
+    setTravelMessage(message);
+    setTravelMeta(null);
+    setResultSort((current) => current === "travel" ? "date" : current);
+  }
+
+  async function chooseTravelMode(mode) {
+    const option = TRAVEL_MODE_OPTIONS.find((candidate) => candidate.value === mode);
+    if (!option || !resultsUseCurrentLocation || !searchMeta) return;
+
+    const requestId = ++travelRequestId.current;
+    setTravelMode(mode);
+    setTravelMinutes(option.defaultMinutes);
+    setTravelEnabled(true);
+    setProximity((current) => ({ ...current, mode: "all" }));
+    setTravelMessage("");
+
+    if (travelEstimatesByMode[mode]) {
+      setTravelStatus("success");
+      setResultSort("travel");
+      return;
+    }
+
+    const eligibleDestinations = displayedEvents.filter(
+      (event) => event.id && Number.isFinite(event.latitude) && Number.isFinite(event.longitude),
+    );
+    const destinations = eligibleDestinations
+      .slice(0, 100)
+      .map((event) => ({
+        id: event.id,
+        latitude: event.latitude,
+        longitude: event.longitude,
+      }));
+    if (!destinations.length) {
+      disableTravel("These results do not include enough venue coordinates for travel estimates.");
+      return;
+    }
+
+    setTravelStatus("loading");
+    setTravelMeta(null);
+    try {
+      const response = await fetch("/api/travel-times", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          origin: {
+            latitude: searchMeta.resolvedLocation.latitude,
+            longitude: searchMeta.resolvedLocation.longitude,
+          },
+          destinations,
+        }),
+      });
+      const body = await response.json();
+      if (requestId !== travelRequestId.current) return;
+      if (!response.ok) throw new Error(body.error || "Travel-time estimates are unavailable.");
+      if (!body.meta?.configured) {
+        disableTravel("Precise travel times are not configured yet. Mileage filters are still available.");
+        return;
+      }
+      const estimates = mapTravelEstimates(body.estimates);
+      if (!Object.keys(estimates).length) {
+        disableTravel("No routes were available for these venues. Mileage filters are still available.");
+        return;
+      }
+      setTravelEstimatesByMode((current) => ({ ...current, [mode]: estimates }));
+      setTravelMeta({
+        ...body.meta,
+        truncated: Boolean(body.meta?.truncated || eligibleDestinations.length > destinations.length),
+      });
+      setTravelStatus("success");
+      setResultSort("travel");
+    } catch (error) {
+      if (requestId !== travelRequestId.current) return;
+      disableTravel(error.message || "Travel-time estimates are unavailable. Using mileage instead.");
+    }
+  }
+
   function resetResultRefinements() {
     setGenre("all");
     setProximity((current) => ({ ...current, mode: "all" }));
     setResultQuery("");
     setResultSort("date");
+    useMileageFilters();
   }
 
   return (
@@ -677,10 +813,22 @@ export default function App() {
               genreOptions={genreOptions}
               matchingEvents={matchingEvents}
               proximity={proximity}
-              proximitySummary={proximitySummary}
+              proximitySummary={resultFilterSummary}
               resultRadius={resultRadius}
               resultsUseCurrentLocation={resultsUseCurrentLocation}
+              travel={{
+                enabled: travelEnabled,
+                matchCount: travelMatchCount,
+                maxMinutes: travelMinutes,
+                message: travelMessage,
+                meta: travelMeta,
+                mode: travelMode,
+                status: travelStatus,
+              }}
+              onChooseTravelMode={chooseTravelMode}
               onReset={resetResultRefinements}
+              onTravelMinutesChange={(value) => setTravelMinutes(clampTravelMinutes(value))}
+              onUseMileage={useMileageFilters}
               setGenre={setGenre}
               setProximity={setProximity}
             />
@@ -699,6 +847,7 @@ export default function App() {
                 <select value={resultSort} onChange={(event) => setResultSort(event.target.value)}>
                   <option value="date">Soonest</option>
                   <option value="distance">Nearest</option>
+                  {travelStatus === "success" ? <option value="travel">Shortest trip</option> : null}
                 </select>
               </label>
             </div>
