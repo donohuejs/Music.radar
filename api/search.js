@@ -131,14 +131,14 @@ async function fetchStoredEvents({ db, startDate, endDate, lat, lng, radius }) {
   return [...events.values()];
 }
 
-async function resolveSearchLocation({ lat, lng, location }) {
+async function resolveSearchLocation({ lat, lng, location, coordinateSource }) {
   if (lat !== null && lng !== null) {
     return {
       latitude: lat,
       longitude: lng,
       timeZone: timeZoneForCoordinates(lat, lng),
       displayName: location || "Current location",
-      source: "browser",
+      source: coordinateSource === "geocoder" ? "geocoder" : "browser",
     };
   }
 
@@ -179,6 +179,7 @@ export default async function handler(request, response) {
       lat: requestedLat,
       lng: requestedLng,
       location,
+      coordinateSource: request.query.locationSource,
     });
     const lat = resolvedLocation.latitude;
     const lng = resolvedLocation.longitude;

@@ -2,6 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { geocodeLocation, reverseGeocodeCoordinates } from "../lib/server/geocode.js";
+import geocodeHandler from "../api/geocode.js";
+
+function mockResponse() {
+  return {
+    statusCode: null,
+    body: null,
+    headers: {},
+    setHeader(name, value) { this.headers[name] = value; },
+    status(value) { this.statusCode = value; return this; },
+    json(value) { this.body = value; return this; },
+  };
+}
 
 test("forward geocoding supports international cities and labels the country", async (context) => {
   const originalFetch = global.fetch;
@@ -38,4 +50,26 @@ test("reverse geocoding returns a useful city, state, and postal label", async (
 
 test("reverse geocoding rejects invalid coordinates before fetching", async () => {
   await assert.rejects(() => reverseGeocodeCoordinates(100, -87), /Valid latitude/);
+});
+
+test("geocode endpoint resolves a planning timezone and reusable coordinates", async (context) => {
+  const originalFetch = global.fetch;
+  context.after(() => { global.fetch = originalFetch; });
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => [{
+      lat: "40.7128",
+      lon: "-74.0060",
+      display_name: "New York, New York, United States",
+      address: { city: "New York", state: "New York", country_code: "us" },
+    }],
+  });
+  const response = mockResponse();
+
+  await geocodeHandler({ method: "GET", query: { location: "New York, NY" } }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.timeZone, "America/New_York");
+  assert.equal(response.body.latitude, 40.7128);
+  assert.equal(response.body.longitude, -74.006);
 });

@@ -1,6 +1,12 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { getDateRange } from "./lib/dateRange.js";
-import { calendarDays, parseLocalDate, toLocalDateValue } from "./lib/calendar.js";
+import {
+  addDaysToDateValue,
+  calendarDays,
+  dateValueInTimeZone,
+  parseLocalDate,
+  toLocalDateValue,
+} from "./lib/calendar.js";
 import {
   confidenceExplanation,
   filterAndSortEvents,
@@ -52,11 +58,6 @@ function loadProximityPreference() {
   }
 }
 
-function localDateInput(date = new Date()) {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
-}
-
 function displayDate(value) {
   const date = parseLocalDate(value);
   return date
@@ -98,14 +99,14 @@ function RadarLogo() {
   );
 }
 
-function CalendarPicker({ mode, start, end, onStartChange, onEndChange }) {
+function CalendarPicker({ mode, start, end, onStartChange, onEndChange, timeZone }) {
   const initialDate = parseLocalDate(start) || new Date();
   const [visibleMonth, setVisibleMonth] = useState(
     new Date(initialDate.getFullYear(), initialDate.getMonth(), 1),
   );
   const [selectingEnd, setSelectingEnd] = useState(false);
   const days = calendarDays(visibleMonth);
-  const today = toLocalDateValue(new Date());
+  const today = dateValueInTimeZone(new Date(), timeZone);
 
   function chooseDay(date) {
     const value = toLocalDateValue(date);
@@ -136,9 +137,9 @@ function CalendarPicker({ mode, start, end, onStartChange, onEndChange }) {
   }
 
   function selectToday() {
-    const now = new Date();
-    setVisibleMonth(new Date(now.getFullYear(), now.getMonth(), 1));
-    chooseDay(now);
+    const todayDate = parseLocalDate(today);
+    setVisibleMonth(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
+    chooseDay(todayDate);
   }
 
   function clear() {
@@ -261,10 +262,10 @@ export default function App() {
   const [coordinates, setCoordinates] = useState(null);
   const [radius, setRadius] = useState(25);
   const [dateOption, setDateOption] = useState("week");
-  const [customStart, setCustomStart] = useState(localDateInput());
-  const [customEnd, setCustomEnd] = useState(
-    localDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
-  );
+  const initialCustomStart = dateValueInTimeZone();
+  const [customStart, setCustomStart] = useState(initialCustomStart);
+  const [customEnd, setCustomEnd] = useState(addDaysToDateValue(initialCustomStart, 7));
+  const [customDatesTouched, setCustomDatesTouched] = useState(false);
   const [category, setCategory] = useState("music");
   const [genre, setGenre] = useState("all");
   const [resultQuery, setResultQuery] = useState("");
@@ -278,6 +279,9 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [locationStatus, setLocationStatus] = useState("idle");
   const [locationMessage, setLocationMessage] = useState("");
+  const [planningTimeZone, setPlanningTimeZone] = useState(null);
+  const [planningTimeZoneStatus, setPlanningTimeZoneStatus] = useState("idle");
+  const locationRequestId = useRef(0);
 
   const resultRadius = Number(searchMeta?.radiusMiles) || radius;
   const resultsUseCurrentLocation = searchMeta?.resolvedLocation?.source === "browser";
@@ -334,6 +338,13 @@ export default function App() {
   }, [proximity]);
 
   useEffect(() => {
+    if (!planningTimeZone || customDatesTouched) return;
+    const start = dateValueInTimeZone(new Date(), planningTimeZone);
+    setCustomStart(start);
+    setCustomEnd(addDaysToDateValue(start, 7));
+  }, [customDatesTouched, planningTimeZone]);
+
+  useEffect(() => {
     if (status !== "success") return undefined;
     const refreshCurrentTime = () => setCurrentTime(Date.now());
     refreshCurrentTime();
@@ -369,11 +380,19 @@ export default function App() {
       return;
     }
 
+    const requestId = ++locationRequestId.current;
+    setPlanningTimeZone(null);
+    setPlanningTimeZoneStatus("loading");
     setLocationStatus("loading");
     setLocationMessage("");
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
-        const current = { latitude: coords.latitude, longitude: coords.longitude };
+        if (requestId !== locationRequestId.current) return;
+        const current = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          source: "browser",
+        };
         setCoordinates(current);
         setLocationMessage("Coordinates found. Identifying your city…");
         try {
@@ -384,15 +403,23 @@ export default function App() {
           const response = await fetch(`/api/reverse-geocode?${params.toString()}`);
           const body = await response.json();
           if (!response.ok || !body.displayName) throw new Error("Location name unavailable");
+          if (requestId !== locationRequestId.current) return;
           setLocationText(body.displayName);
+          setPlanningTimeZone(body.timeZone || null);
+          setPlanningTimeZoneStatus(body.timeZone ? "success" : "idle");
           setLocationMessage(`✓ Location found: ${body.displayName}.`);
         } catch {
+          if (requestId !== locationRequestId.current) return;
           setLocationText("");
+          setPlanningTimeZone(null);
+          setPlanningTimeZoneStatus("idle");
           setLocationMessage("✓ Location coordinates found. Press Scan to search nearby.");
         }
         setLocationStatus("success");
       },
       () => {
+        if (requestId !== locationRequestId.current) return;
+        setPlanningTimeZoneStatus("idle");
         setLocationMessage("Location access was denied. You can still type a city.");
         setLocationStatus("error");
       },
@@ -400,8 +427,36 @@ export default function App() {
     );
   }
 
+  async function resolvePlanningTimeZone(value) {
+    const location = String(value || "").trim();
+    if (!location) return;
+    const requestId = ++locationRequestId.current;
+    setPlanningTimeZoneStatus("loading");
+    try {
+      const params = new URLSearchParams({ location });
+      const response = await fetch(`/api/geocode?${params.toString()}`);
+      const body = await response.json();
+      if (!response.ok || !body.timeZone) throw new Error("Time zone unavailable");
+      if (requestId !== locationRequestId.current) return;
+      setPlanningTimeZone(body.timeZone);
+      setPlanningTimeZoneStatus("success");
+      if (Number.isFinite(body.latitude) && Number.isFinite(body.longitude)) {
+        setCoordinates({
+          latitude: body.latitude,
+          longitude: body.longitude,
+          source: "geocoder",
+        });
+      }
+    } catch {
+      if (requestId !== locationRequestId.current) return;
+      setPlanningTimeZone(null);
+      setPlanningTimeZoneStatus("idle");
+    }
+  }
+
   async function runSearch(event) {
     event.preventDefault();
+    locationRequestId.current += 1;
     setStatus("loading");
     setMessage("");
     setGenre("all");
@@ -431,6 +486,7 @@ export default function App() {
     if (coordinates) {
       params.set("lat", String(coordinates.latitude));
       params.set("lng", String(coordinates.longitude));
+      params.set("locationSource", coordinates.source || "browser");
       if (locationText.trim()) params.set("location", locationText.trim());
     } else {
       params.set("location", locationText.trim());
@@ -457,6 +513,8 @@ export default function App() {
 
       setEvents(Array.isArray(body.events) ? body.events : []);
       setSearchMeta(body.meta || null);
+      setPlanningTimeZone(body.meta?.resolvedLocation?.timeZone || null);
+      setPlanningTimeZoneStatus(body.meta?.resolvedLocation?.timeZone ? "success" : "idle");
       setStatus("success");
     } catch (error) {
       setMessage(error.message || "Search failed.");
@@ -484,8 +542,11 @@ export default function App() {
                 <LocationAutocomplete
                   value={locationText}
                   onChange={(value) => {
+                    locationRequestId.current += 1;
                     setLocationText(value);
                     setCoordinates(null);
+                    setPlanningTimeZone(null);
+                    setPlanningTimeZoneStatus("idle");
                     setLocationMessage("");
                     setLocationStatus("idle");
                   }}
@@ -494,7 +555,9 @@ export default function App() {
                     setCoordinates(null);
                     setLocationMessage(`Location selected: ${value}.`);
                     setLocationStatus("idle");
+                    resolvePlanningTimeZone(value);
                   }}
+                  onCommit={dateOption === "custom" ? resolvePlanningTimeZone : undefined}
                   required={!coordinates}
                 />
                 <button className={`button button--secondary ${locationStatus === "success" ? "is-success" : ""}`} type="button" onClick={useCurrentLocation} disabled={locationStatus === "loading"}>
@@ -507,7 +570,14 @@ export default function App() {
             <div className="control-grid">
               <label>
                 When
-                <select value={dateOption} onChange={(event) => setDateOption(event.target.value)}>
+                <select
+                  value={dateOption}
+                  onChange={(event) => {
+                    const option = event.target.value;
+                    setDateOption(option);
+                    if (option === "custom") resolvePlanningTimeZone(locationText);
+                  }}
+                >
                   {DATE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
@@ -536,7 +606,27 @@ export default function App() {
 
             {dateOption === "custom" ? (
               <div className="custom-date-grid">
-                <CalendarPicker mode="range" start={customStart} end={customEnd} onStartChange={setCustomStart} onEndChange={setCustomEnd} />
+                <CalendarPicker
+                  mode="range"
+                  start={customStart}
+                  end={customEnd}
+                  onStartChange={(value) => {
+                    setCustomDatesTouched(true);
+                    setCustomStart(value);
+                  }}
+                  onEndChange={(value) => {
+                    setCustomDatesTouched(true);
+                    setCustomEnd(value);
+                  }}
+                  timeZone={planningTimeZone}
+                />
+                <span className="field-message" aria-live="polite">
+                  {planningTimeZoneStatus === "loading"
+                    ? "Checking the location’s calendar day…"
+                    : planningTimeZone
+                      ? `Dates use ${planningTimeZone.replaceAll("_", " ")}.`
+                      : "Dates will be confirmed in the searched location’s time zone."}
+                </span>
               </div>
             ) : null}
 

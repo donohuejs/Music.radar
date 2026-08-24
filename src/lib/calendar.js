@@ -14,6 +14,26 @@ export function toLocalDateValue(date) {
   return `${year}-${month}-${day}`;
 }
 
+export function dateValueInTimeZone(date = new Date(), timeZone) {
+  if (!timeZone) return toLocalDateValue(date);
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date).map(({ type, value }) => [type, value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+export function addDaysToDateValue(value, days) {
+  const date = parseLocalDate(value);
+  if (!date) return "";
+  date.setDate(date.getDate() + days);
+  return toLocalDateValue(date);
+}
+
 export function calendarDays(monthDate) {
   const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
   const gridStart = new Date(first);

@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  addDaysToDateValue,
   calendarDays,
+  dateValueInTimeZone,
   parseLocalDate,
   toLocalDateValue,
 } from "../src/lib/calendar.js";
@@ -13,6 +15,13 @@ test("builds a six-week clickable calendar grid", () => {
   assert.equal(days[0].getDay(), 0);
   assert.equal(days[41].getDay(), 6);
   assert.equal(days.some((date) => toLocalDateValue(date) === "2026-08-31"), true);
+});
+
+test("builds date shortcuts in the planned location's time zone", () => {
+  const instant = new Date("2026-08-24T02:05:00.000Z");
+  assert.equal(dateValueInTimeZone(instant, "America/New_York"), "2026-08-23");
+  assert.equal(dateValueInTimeZone(instant, "Asia/Tokyo"), "2026-08-24");
+  assert.equal(addDaysToDateValue("2026-12-29", 7), "2027-01-05");
 });
 
 test("parses calendar values without UTC date shifting", () => {

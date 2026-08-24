@@ -14,7 +14,7 @@ function loadLocationIndex() {
   return locationIndexPromise;
 }
 
-export default function LocationAutocomplete({ value, onChange, onSelect, required }) {
+export default function LocationAutocomplete({ value, onChange, onSelect, onCommit, required }) {
   const listboxId = useId();
   const [index, setIndex] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
@@ -84,7 +84,10 @@ export default function LocationAutocomplete({ value, onChange, onSelect, requir
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onFocus={() => { ensureIndex(); if (suggestions.length) setOpen(true); }}
-        onBlur={() => setOpen(false)}
+        onBlur={() => {
+          setOpen(false);
+          onCommit?.(value);
+        }}
         onKeyDown={handleKeyDown}
         placeholder="Enter a city, region, postal code, or country"
         required={required}
