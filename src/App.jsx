@@ -319,6 +319,7 @@ export default function App() {
     availablePresets: availableProximityPresets,
     customDistance,
     maxDistance,
+    minDistance,
     summary: proximitySummary,
   } = useMemo(
     () => buildProximityModel(proximity, resultRadius),
@@ -356,11 +357,12 @@ export default function App() {
       genre,
       query: resultQuery,
       sort: resultSort,
+      minDistance: travelEnabled ? null : minDistance,
       maxDistance: travelEnabled ? null : maxDistance,
       maxTravelMinutes:
         travelEnabled && travelStatus === "success" ? travelMinutes : null,
     }),
-    [estimatedEvents, genre, maxDistance, resultQuery, resultSort, travelEnabled, travelMinutes, travelStatus],
+    [estimatedEvents, genre, maxDistance, minDistance, resultQuery, resultSort, travelEnabled, travelMinutes, travelStatus],
   );
   const travelMatchCount = useMemo(
     () => countTravelMatches(matchingEvents, travelMinutes),
@@ -405,7 +407,7 @@ export default function App() {
     if (status !== "success" || !searchMeta) return;
     setProximity((current) => {
       const preset = PROXIMITY_PRESETS.find((option) => option.value === current.mode);
-      const nextMode = preset && preset.miles >= resultRadius ? "all" : current.mode;
+      const nextMode = preset && resultRadius <= (preset.minMiles || 0) ? "all" : current.mode;
       const nextCustomMiles = Math.min(Number(current.customMiles) || 3, resultRadius);
       if (nextMode === current.mode && String(nextCustomMiles) === current.customMiles) return current;
       return { mode: nextMode, customMiles: String(nextCustomMiles) };

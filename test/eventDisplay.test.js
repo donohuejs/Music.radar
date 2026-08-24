@@ -24,6 +24,10 @@ test("filters dense results by venue text and sorts them by distance", () => {
     filterAndSortEvents(events, { maxDistance: 4 }).map((event) => event.id),
     ["near", "mid"],
   );
+  assert.deepEqual(
+    filterAndSortEvents(events, { minDistance: 5, maxDistance: 10 }).map((event) => event.id),
+    ["far"],
+  );
 });
 
 test("filters and sorts results by estimated travel time", () => {

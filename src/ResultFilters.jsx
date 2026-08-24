@@ -167,7 +167,7 @@ export default function ResultFilters({
                   onClick={() => chooseDistance(option.value, closePopover)}
                   aria-pressed={!travel.enabled && proximity.mode === option.value}
                 >
-                  {option.label} · ≤{option.miles} mi ({proximityCounts.presets[option.value]})
+                  {option.label} · {option.rangeLabel} ({proximityCounts.presets[option.value]})
                 </button>
               ))}
               <button

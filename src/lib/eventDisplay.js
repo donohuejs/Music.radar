@@ -27,6 +27,7 @@ export function filterAndSortEvents(
     genre = "all",
     query = "",
     sort = "date",
+    minDistance = null,
     maxDistance = null,
     maxTravelMinutes = null,
   } = {},
@@ -34,6 +35,10 @@ export function filterAndSortEvents(
   const needle = String(query).trim().toLocaleLowerCase();
   const filtered = events.filter((event) => {
     if (genre !== "all" && !(event.genres || []).includes(genre)) return false;
+    if (
+      Number.isFinite(minDistance) &&
+      (!Number.isFinite(event.distanceMiles) || event.distanceMiles <= minDistance)
+    ) return false;
     if (
       Number.isFinite(maxDistance) &&
       (!Number.isFinite(event.distanceMiles) || event.distanceMiles > maxDistance)

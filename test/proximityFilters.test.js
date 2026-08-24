@@ -10,12 +10,31 @@ import {
 test("builds available presets and a compact selected-distance summary", () => {
   const model = buildProximityModel({ mode: "walkable", customMiles: "3" }, 25);
   assert.equal(model.maxDistance, 1.5);
+  assert.equal(model.minDistance, null);
   assert.equal(model.summary, "Walkable · ≤1.5 mi");
-  assert.deepEqual(model.availablePresets, PROXIMITY_PRESETS);
+  assert.deepEqual(
+    model.availablePresets.map((preset) => preset.value),
+    ["walkable", "short-trip", "across-town", "farther-out"],
+  );
 
   const compact = buildProximityModel({ mode: "short-trip", customMiles: "8" }, 5);
   assert.equal(compact.maxDistance, 5);
-  assert.equal(compact.availablePresets.length, 1);
+  assert.equal(compact.minDistance, 1.5);
+  assert.equal(compact.summary, "Short trip · 1.5–5 mi");
+  assert.deepEqual(
+    compact.availablePresets.map((preset) => preset.value),
+    ["walkable", "short-trip"],
+  );
+
+  const acrossTown = buildProximityModel({ mode: "across-town", customMiles: "8" }, 25);
+  assert.equal(acrossTown.minDistance, 5);
+  assert.equal(acrossTown.maxDistance, 10);
+  assert.equal(acrossTown.summary, "Across town · 5–10 mi");
+
+  const fartherOut = buildProximityModel({ mode: "farther-out", customMiles: "8" }, 25);
+  assert.equal(fartherOut.minDistance, 10);
+  assert.equal(fartherOut.maxDistance, 25);
+  assert.equal(fartherOut.summary, "Farther out · 10–25 mi");
 });
 
 test("clamps a custom distance to the completed search radius", () => {
@@ -38,7 +57,8 @@ test("counts proximity options in one pass and ignores unknown distances", () =>
   assert.equal(counts.custom, 2);
   assert.deepEqual(counts.presets, {
     walkable: 1,
-    "short-trip": 2,
-    "across-town": 3,
+    "short-trip": 1,
+    "across-town": 1,
+    "farther-out": 1,
   });
 });
