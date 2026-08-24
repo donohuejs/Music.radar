@@ -31,6 +31,7 @@ export default function ResultFilterMenu({
   name,
   label,
   value,
+  active = false,
   align = "left",
   openFilter,
   onOpen,
@@ -127,7 +128,7 @@ export default function ResultFilterMenu({
 
   return (
     <div
-      className={`filter-menu filter-menu--${align} ${isOpen ? "is-open" : ""}`}
+      className={`filter-menu filter-menu--${align} ${isOpen ? "is-open" : ""} ${active ? "is-active" : ""}`}
       ref={rootRef}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}

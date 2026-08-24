@@ -4,6 +4,7 @@ import { countEventsByProximity } from "./lib/proximityFilters.js";
 
 export default function ResultFilters({
   availableProximityPresets,
+  activeRefinementCount,
   customDistance,
   displayedEventCount,
   genre,
@@ -13,6 +14,7 @@ export default function ResultFilters({
   proximitySummary,
   resultRadius,
   resultsUseCurrentLocation,
+  onReset,
   setGenre,
   setProximity,
 }) {
@@ -40,6 +42,7 @@ export default function ResultFilters({
         name="genre"
         label="Genre"
         value={genre === "all" ? "All genres" : genre}
+        active={genre !== "all"}
         openFilter={openFilter}
         onOpen={openMenu}
         onClose={closeMenu}
@@ -72,6 +75,7 @@ export default function ResultFilters({
         name="distance"
         label="Distance"
         value={proximitySummary}
+        active={proximity.mode !== "all"}
         align="right"
         openFilter={openFilter}
         onOpen={openMenu}
@@ -142,6 +146,18 @@ export default function ResultFilters({
           </div>
         )}
       </ResultFilterMenu>
+      {activeRefinementCount > 0 ? (
+        <button
+          className="filter-menu-bar__reset"
+          type="button"
+          onClick={() => {
+            closeMenu();
+            onReset();
+          }}
+        >
+          Reset filters ({activeRefinementCount})
+        </button>
+      ) : null}
     </div>
   );
 }

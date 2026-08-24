@@ -17,6 +17,7 @@ import {
 import { buildProximityModel, PROXIMITY_PRESETS } from "./lib/proximityFilters.js";
 import { formatEventDate, formatTheaterRun } from "./lib/eventDate.js";
 import { buildSearchContext } from "./lib/searchContext.js";
+import { countActiveRefinements } from "./lib/resultRefinements.js";
 import LocationAutocomplete from "./LocationAutocomplete.jsx";
 import ResultFilters from "./ResultFilters.jsx";
 
@@ -287,6 +288,12 @@ export default function App() {
   const resultRadius = Number(searchMeta?.radiusMiles) || radius;
   const resultsUseCurrentLocation = searchMeta?.resolvedLocation?.source === "browser";
   const searchContext = useMemo(() => buildSearchContext(searchMeta), [searchMeta]);
+  const activeRefinementCount = useMemo(() => countActiveRefinements({
+    genre,
+    proximityMode: proximity.mode,
+    query: resultQuery,
+    sort: resultSort,
+  }), [genre, proximity.mode, resultQuery, resultSort]);
   const {
     availablePresets: availableProximityPresets,
     customDistance,
@@ -524,6 +531,13 @@ export default function App() {
     }
   }
 
+  function resetResultRefinements() {
+    setGenre("all");
+    setProximity((current) => ({ ...current, mode: "all" }));
+    setResultQuery("");
+    setResultSort("date");
+  }
+
   return (
     <main>
       <section className="hero">
@@ -655,6 +669,7 @@ export default function App() {
         {status === "success" && displayedEvents.length ? (
           <>
             <ResultFilters
+              activeRefinementCount={activeRefinementCount}
               availableProximityPresets={availableProximityPresets}
               customDistance={customDistance}
               displayedEventCount={displayedEvents.length}
@@ -665,6 +680,7 @@ export default function App() {
               proximitySummary={proximitySummary}
               resultRadius={resultRadius}
               resultsUseCurrentLocation={resultsUseCurrentLocation}
+              onReset={resetResultRefinements}
               setGenre={setGenre}
               setProximity={setProximity}
             />

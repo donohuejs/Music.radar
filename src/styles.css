@@ -126,10 +126,14 @@ input:focus, select:focus { border-color: #b1ff47; box-shadow: 0 0 0 3px rgba(17
 .filter-menu-bar { position: relative; z-index: 10; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 16px; background: #101416; border: 1px solid #293036; border-radius: 14px; }
 .filter-menu { position: relative; min-width: 0; }
 .filter-menu__trigger { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; width: 100%; padding: 11px 13px; color: #e9edef; background: #171b1e; border: 1px solid #394047; border-radius: 10px; cursor: pointer; text-align: left; }
+.filter-menu.is-active .filter-menu__trigger { border-color: #b1ff47; box-shadow: inset 0 0 0 1px rgba(177, 255, 71, .2); }
 .filter-menu__trigger > span:first-child { color: #8f999f; font-size: .7rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
 .filter-menu__trigger strong { overflow: hidden; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
 .filter-menu__trigger:focus-visible, .filter-menu__heading button:focus-visible, .filter-menu__done:focus-visible, .genre-filters button:focus-visible, .proximity-options button:focus-visible { outline: 2px solid #b1ff47; outline-offset: 2px; }
 .filter-menu__chevron { color: #b1ff47; font-size: 1.1rem; transition: transform .15s ease; }
+.filter-menu-bar__reset { grid-column: 1 / -1; justify-self: end; padding: 3px 2px; color: #b1ff47; background: transparent; border: 0; cursor: pointer; font-size: .72rem; font-weight: 900; }
+.filter-menu-bar__reset:hover { text-decoration: underline; text-underline-offset: 3px; }
+.filter-menu-bar__reset:focus-visible { outline: 2px solid #b1ff47; outline-offset: 3px; }
 .filter-menu.is-open .filter-menu__chevron { transform: rotate(180deg); }
 .filter-menu__popover { position: absolute; top: calc(100% + 8px); left: 0; display: grid; gap: 13px; width: min(540px, calc(100vw - 48px)); max-height: min(70vh, 620px); overflow-y: auto; overscroll-behavior: contain; padding: 16px; background: #101416; border: 1px solid #485159; border-radius: 14px; box-shadow: 0 20px 50px rgba(0, 0, 0, .58); outline: none; }
 .filter-menu__popover[hidden] { display: none; }
