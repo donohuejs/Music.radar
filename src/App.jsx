@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { getDateRange } from "./lib/dateRange.js";
 import { calendarDays, parseLocalDate, toLocalDateValue } from "./lib/calendar.js";
 import {
@@ -92,6 +92,90 @@ function displayDate(value) {
   return date
     ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date)
     : "Choose a date";
+}
+
+function ResultFilterMenu({ label, value, align = "left", children }) {
+  const panelId = useId();
+  const rootRef = useRef(null);
+  const [isPinned, setIsPinned] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const isOpen = isPinned || isHovered;
+
+  function closeMenu() {
+    setIsPinned(false);
+    setIsHovered(false);
+  }
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    function handlePointerDown(event) {
+      if (!rootRef.current?.contains(event.target)) closeMenu();
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") closeMenu();
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div
+      className={`filter-menu filter-menu--${align} ${isOpen ? "is-open" : ""}`}
+      ref={rootRef}
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse") setIsHovered(true);
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType === "mouse") setIsHovered(false);
+      }}
+    >
+      <button
+        className="filter-menu__trigger"
+        type="button"
+        aria-controls={panelId}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
+        onClick={() => {
+          if (isPinned) closeMenu();
+          else setIsPinned(true);
+        }}
+      >
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <span className="filter-menu__chevron" aria-hidden="true">⌄</span>
+      </button>
+      {isOpen ? (
+        <button
+          className="filter-menu__backdrop"
+          type="button"
+          aria-label={`Close ${label.toLowerCase()} filters`}
+          tabIndex="-1"
+          onClick={closeMenu}
+        />
+      ) : null}
+      <div
+        className="filter-menu__popover"
+        id={panelId}
+        role="dialog"
+        aria-label={`${label} filters`}
+        hidden={!isOpen}
+      >
+        <div className="filter-menu__heading">
+          <strong>{label}</strong>
+          <button type="button" onClick={closeMenu} aria-label={`Close ${label.toLowerCase()} filters`}>×</button>
+        </div>
+        {children}
+        <button className="filter-menu__done" type="button" onClick={closeMenu}>Done</button>
+      </div>
+    </div>
+  );
 }
 
 function RadarLogo() {
@@ -325,6 +409,11 @@ export default function App() {
     : proximity.mode === "all"
       ? null
       : Math.min(selectedPreset?.miles || resultRadius, resultRadius);
+  const proximitySummary = proximity.mode === "all"
+    ? `All · ${resultRadius} mi`
+    : proximity.mode === "custom"
+      ? `Custom · ≤${customDistance} mi`
+      : `${selectedPreset?.label || "Nearby"} · ≤${maxDistance} mi`;
 
   const upcomingEvents = useMemo(
     () => filterUpcomingEvents(events, currentTime),
@@ -583,101 +672,105 @@ export default function App() {
             <p className="results__kicker">RADAR RESULTS</p>
             <h2>{resultSummary}</h2>
           </div>
-          {status === "success" && displayedEvents.length ? (
-            <div className="genre-filters" aria-label="Filter results by genre">
-              <button
-                className={genre === "all" ? "is-active" : ""}
-                type="button"
-                onClick={() => setGenre("all")}
-                aria-pressed={genre === "all"}
-              >
-                All ({displayedEvents.length})
-              </button>
-              {genreOptions.map((option) => (
-                <button
-                  className={genre === option.name ? "is-active" : ""}
-                  key={option.name}
-                  type="button"
-                  onClick={() => setGenre(option.name)}
-                  aria-pressed={genre === option.name}
-                >
-                  {option.name} ({option.count})
-                </button>
-              ))}
-            </div>
-          ) : null}
         </div>
 
         {status === "success" && displayedEvents.length ? (
           <div className="result-tools" aria-label="Refine search results">
-            <div className="proximity-filter">
-              <div className="proximity-filter__heading">
-                <strong>{resultsUseCurrentLocation ? "Distance from you" : "Distance from search center"}</strong>
-                <small>Filters these results; the scan still covers {resultRadius} miles.</small>
-              </div>
-              <div className="proximity-options" role="group" aria-label="Filter results by distance">
-                <button
-                  className={proximity.mode === "all" ? "is-active" : ""}
-                  type="button"
-                  onClick={() => setProximity((current) => ({ ...current, mode: "all" }))}
-                  aria-pressed={proximity.mode === "all"}
-                >
-                  All ({matchingEvents.length})
-                </button>
-                {availableProximityPresets.map((option) => {
-                  const count = matchingEvents.filter((event) =>
-                    Number.isFinite(event.distanceMiles) && event.distanceMiles <= option.miles
-                  ).length;
-                  return (
+            <div className="filter-menu-bar">
+              <ResultFilterMenu label="Genre" value={genre === "all" ? "All genres" : genre}>
+                <div className="genre-filters" aria-label="Filter results by genre">
+                  <button
+                    className={genre === "all" ? "is-active" : ""}
+                    type="button"
+                    onClick={() => setGenre("all")}
+                    aria-pressed={genre === "all"}
+                  >
+                    All ({displayedEvents.length})
+                  </button>
+                  {genreOptions.map((option) => (
                     <button
-                      className={proximity.mode === option.value ? "is-active" : ""}
-                      key={option.value}
+                      className={genre === option.name ? "is-active" : ""}
+                      key={option.name}
                       type="button"
-                      onClick={() => setProximity((current) => ({ ...current, mode: option.value }))}
-                      aria-pressed={proximity.mode === option.value}
+                      onClick={() => setGenre(option.name)}
+                      aria-pressed={genre === option.name}
                     >
-                      {option.label} · ≤{option.miles} mi ({count})
+                      {option.name} ({option.count})
                     </button>
-                  );
-                })}
-                <button
-                  className={proximity.mode === "custom" ? "is-active" : ""}
-                  type="button"
-                  onClick={() => setProximity((current) => ({ ...current, mode: "custom" }))}
-                  aria-pressed={proximity.mode === "custom"}
-                >
-                  Custom
-                </button>
-              </div>
-              {proximity.mode === "custom" ? (
-                <label className="custom-distance">
-                  Within
-                  <input
-                    type="number"
-                    min="0.5"
-                    max={resultRadius}
-                    step="0.5"
-                    value={proximity.customMiles}
-                    onChange={(event) => setProximity((current) => ({
-                      ...current,
-                      customMiles: event.target.value,
-                    }))}
-                    onBlur={() => setProximity((current) => ({
-                      ...current,
-                      customMiles: String(customDistance),
-                    }))}
-                    aria-label="Custom distance in miles"
-                  />
-                  miles ({matchingEvents.filter((event) =>
-                    Number.isFinite(event.distanceMiles) && event.distanceMiles <= customDistance
-                  ).length})
-                </label>
-              ) : null}
-              {!resultsUseCurrentLocation ? (
-                <small className="proximity-filter__note">
-                  Use current location for an accurate “from you” distance.
-                </small>
-              ) : null}
+                  ))}
+                </div>
+              </ResultFilterMenu>
+              <ResultFilterMenu label="Distance" value={proximitySummary} align="right">
+                <div className="proximity-filter">
+                  <div className="proximity-filter__heading">
+                    <strong>{resultsUseCurrentLocation ? "Distance from you" : "Distance from search center"}</strong>
+                    <small>The scan still covers {resultRadius} miles.</small>
+                  </div>
+                  <div className="proximity-options" role="group" aria-label="Filter results by distance">
+                    <button
+                      className={proximity.mode === "all" ? "is-active" : ""}
+                      type="button"
+                      onClick={() => setProximity((current) => ({ ...current, mode: "all" }))}
+                      aria-pressed={proximity.mode === "all"}
+                    >
+                      All ({matchingEvents.length})
+                    </button>
+                    {availableProximityPresets.map((option) => {
+                      const count = matchingEvents.filter((event) =>
+                        Number.isFinite(event.distanceMiles) && event.distanceMiles <= option.miles
+                      ).length;
+                      return (
+                        <button
+                          className={proximity.mode === option.value ? "is-active" : ""}
+                          key={option.value}
+                          type="button"
+                          onClick={() => setProximity((current) => ({ ...current, mode: option.value }))}
+                          aria-pressed={proximity.mode === option.value}
+                        >
+                          {option.label} · ≤{option.miles} mi ({count})
+                        </button>
+                      );
+                    })}
+                    <button
+                      className={proximity.mode === "custom" ? "is-active" : ""}
+                      type="button"
+                      onClick={() => setProximity((current) => ({ ...current, mode: "custom" }))}
+                      aria-pressed={proximity.mode === "custom"}
+                    >
+                      Custom
+                    </button>
+                  </div>
+                  {proximity.mode === "custom" ? (
+                    <label className="custom-distance">
+                      Within
+                      <input
+                        type="number"
+                        min="0.5"
+                        max={resultRadius}
+                        step="0.5"
+                        value={proximity.customMiles}
+                        onChange={(event) => setProximity((current) => ({
+                          ...current,
+                          customMiles: event.target.value,
+                        }))}
+                        onBlur={() => setProximity((current) => ({
+                          ...current,
+                          customMiles: String(customDistance),
+                        }))}
+                        aria-label="Custom distance in miles"
+                      />
+                      miles ({matchingEvents.filter((event) =>
+                        Number.isFinite(event.distanceMiles) && event.distanceMiles <= customDistance
+                      ).length})
+                    </label>
+                  ) : null}
+                  {!resultsUseCurrentLocation ? (
+                    <small className="proximity-filter__note">
+                      Use current location for an accurate “from you” distance.
+                    </small>
+                  ) : null}
+                </div>
+              </ResultFilterMenu>
             </div>
             <label>
               Find in results
