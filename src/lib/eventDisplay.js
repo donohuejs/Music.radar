@@ -29,7 +29,6 @@ export function filterAndSortEvents(
     sort = "date",
     minDistance = null,
     maxDistance = null,
-    maxTravelMinutes = null,
   } = {},
 ) {
   const needle = String(query).trim().toLocaleLowerCase();
@@ -43,22 +42,12 @@ export function filterAndSortEvents(
       Number.isFinite(maxDistance) &&
       (!Number.isFinite(event.distanceMiles) || event.distanceMiles > maxDistance)
     ) return false;
-    if (
-      Number.isFinite(maxTravelMinutes) &&
-      (!Number.isFinite(event.travelMinutes) || event.travelMinutes > maxTravelMinutes)
-    ) return false;
     if (!needle) return true;
     return [event.name, event.venueName, event.city, event.state, ...(event.genres || [])]
       .some((value) => String(value || "").toLocaleLowerCase().includes(needle));
   });
 
   return [...filtered].sort((a, b) => {
-    if (sort === "travel") {
-      const travelDifference =
-        (Number.isFinite(a.travelMinutes) ? a.travelMinutes : Infinity) -
-        (Number.isFinite(b.travelMinutes) ? b.travelMinutes : Infinity);
-      if (travelDifference) return travelDifference;
-    }
     if (sort === "distance") {
       const distanceDifference = (Number.isFinite(a.distanceMiles) ? a.distanceMiles : Infinity) -
         (Number.isFinite(b.distanceMiles) ? b.distanceMiles : Infinity);

@@ -19,13 +19,12 @@ import { formatEventDate, formatTheaterRun } from "./lib/eventDate.js";
 import { buildSearchContext } from "./lib/searchContext.js";
 import { countActiveRefinements } from "./lib/resultRefinements.js";
 import {
-  attachTravelEstimates,
-  clampTravelMinutes,
-  countTravelMatches,
-  mapTravelEstimates,
-  TRAVEL_MODE_OPTIONS,
-  travelModeLabel,
-} from "./lib/travelTimeFilters.js";
+  buildMapUrl,
+  MAP_APP_STORAGE_KEY,
+  mapAppLabel,
+  normalizeMapApp,
+} from "./lib/mapLinks.js";
+import DirectionsChooser from "./DirectionsChooser.jsx";
 import LocationAutocomplete from "./LocationAutocomplete.jsx";
 import ResultFilters from "./ResultFilters.jsx";
 
@@ -49,7 +48,15 @@ const CATEGORY_OPTIONS = [
   { label: "All events", value: "all" },
 ];
 const RESULTS_PAGE_SIZE = 24;
-const EMPTY_TRAVEL_ESTIMATES = Object.freeze({});
+
+function loadMapPreference() {
+  if (typeof window === "undefined") return null;
+  try {
+    return normalizeMapApp(window.localStorage.getItem(MAP_APP_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
 
 function loadProximityPreference() {
   const fallback = { mode: "all", customMiles: "3" };
@@ -201,8 +208,12 @@ function CalendarPicker({ mode, start, end, onStartChange, onEndChange, timeZone
   );
 }
 
-function EventCard({ event, timeZone }) {
+function EventCard({ event, preferredMapApp, onChooseDirections, timeZone }) {
   const confidenceId = useId();
+  const fallbackDirectionsUrl = buildMapUrl("google", event);
+  const preferredDirectionsUrl = preferredMapApp
+    ? buildMapUrl(preferredMapApp, event)
+    : null;
 
   return (
     <article className="event-card">
@@ -222,9 +233,6 @@ function EventCard({ event, timeZone }) {
           {event.performanceCount ? ` · ${event.performanceCount} performances` : ""}
           {Number.isFinite(event.distanceMiles)
             ? ` · ${event.distanceMiles.toFixed(1)} mi`
-            : ""}
-          {Number.isFinite(event.travelMinutes)
-            ? ` · ${event.travelMinutes} min ${travelModeLabel(event.travelMode).toLowerCase()}`
             : ""}
         </div>
         <h2>{event.name}</h2>
@@ -261,11 +269,44 @@ function EventCard({ event, timeZone }) {
           ) : null}
         </div>
 
-        {event.ticketUrl ? (
-          <a className="button button--small" href={event.ticketUrl} target="_blank" rel="noreferrer">
-            Event details
-          </a>
-        ) : null}
+        <div className="event-card__actions">
+          {event.ticketUrl ? (
+            <a className="button button--small" href={event.ticketUrl} target="_blank" rel="noreferrer">
+              Event details
+            </a>
+          ) : null}
+          {fallbackDirectionsUrl ? (
+            preferredDirectionsUrl ? (
+              <div className="directions-action">
+                <a
+                  className="button button--small button--directions"
+                  href={preferredDirectionsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Directions with ${mapAppLabel(preferredMapApp)}`}
+                >
+                  Directions
+                </a>
+                <button
+                  type="button"
+                  aria-label="Choose a different maps app"
+                  title={`Currently using ${mapAppLabel(preferredMapApp)}`}
+                  onClick={() => onChooseDirections(event)}
+                >
+                  ⌄
+                </button>
+              </div>
+            ) : (
+              <button
+                className="button button--small button--directions"
+                type="button"
+                onClick={() => onChooseDirections(event)}
+              >
+                Directions
+              </button>
+            )
+          ) : null}
+        </div>
       </div>
     </article>
   );
@@ -285,13 +326,8 @@ export default function App() {
   const [resultQuery, setResultQuery] = useState("");
   const [resultSort, setResultSort] = useState("date");
   const [proximity, setProximity] = useState(loadProximityPreference);
-  const [travelMode, setTravelMode] = useState("transit");
-  const [travelMinutes, setTravelMinutes] = useState(35);
-  const [travelEnabled, setTravelEnabled] = useState(false);
-  const [travelStatus, setTravelStatus] = useState("idle");
-  const [travelMessage, setTravelMessage] = useState("");
-  const [travelEstimatesByMode, setTravelEstimatesByMode] = useState({});
-  const [travelMeta, setTravelMeta] = useState(null);
+  const [preferredMapApp, setPreferredMapApp] = useState(loadMapPreference);
+  const [directionsEvent, setDirectionsEvent] = useState(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [visibleCount, setVisibleCount] = useState(RESULTS_PAGE_SIZE);
   const [events, setEvents] = useState([]);
@@ -303,18 +339,15 @@ export default function App() {
   const [planningTimeZone, setPlanningTimeZone] = useState(null);
   const [planningTimeZoneStatus, setPlanningTimeZoneStatus] = useState("idle");
   const locationRequestId = useRef(0);
-  const travelRequestId = useRef(0);
 
   const resultRadius = Number(searchMeta?.radiusMiles) || radius;
-  const resultsUseCurrentLocation = searchMeta?.resolvedLocation?.source === "browser";
   const searchContext = useMemo(() => buildSearchContext(searchMeta), [searchMeta]);
   const activeRefinementCount = useMemo(() => countActiveRefinements({
     genre,
     proximityMode: proximity.mode,
     query: resultQuery,
     sort: resultSort,
-    travelEnabled,
-  }), [genre, proximity.mode, resultQuery, resultSort, travelEnabled]);
+  }), [genre, proximity.mode, resultQuery, resultSort]);
   const {
     availablePresets: availableProximityPresets,
     customDistance,
@@ -331,15 +364,10 @@ export default function App() {
     [currentTime, events],
   );
   const displayedEvents = useMemo(() => groupTheaterRuns(upcomingEvents), [upcomingEvents]);
-  const activeTravelEstimates = travelEstimatesByMode[travelMode] || EMPTY_TRAVEL_ESTIMATES;
-  const estimatedEvents = useMemo(
-    () => attachTravelEstimates(displayedEvents, activeTravelEstimates, travelMode),
-    [activeTravelEstimates, displayedEvents, travelMode],
-  );
 
   const genreOptions = useMemo(() => {
     const counts = new Map();
-    estimatedEvents.forEach((event) => {
+    displayedEvents.forEach((event) => {
       (event.genres || []).forEach((eventGenre) => {
         counts.set(eventGenre, (counts.get(eventGenre) || 0) + 1);
       });
@@ -347,37 +375,26 @@ export default function App() {
     return [...counts.entries()]
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [estimatedEvents]);
+  }, [displayedEvents]);
   const matchingEvents = useMemo(
-    () => filterAndSortEvents(estimatedEvents, { genre, query: resultQuery }),
-    [estimatedEvents, genre, resultQuery],
+    () => filterAndSortEvents(displayedEvents, { genre, query: resultQuery }),
+    [displayedEvents, genre, resultQuery],
   );
   const filteredEvents = useMemo(
-    () => filterAndSortEvents(estimatedEvents, {
+    () => filterAndSortEvents(displayedEvents, {
       genre,
       query: resultQuery,
       sort: resultSort,
-      minDistance: travelEnabled ? null : minDistance,
-      maxDistance: travelEnabled ? null : maxDistance,
-      maxTravelMinutes:
-        travelEnabled && travelStatus === "success" ? travelMinutes : null,
+      minDistance,
+      maxDistance,
     }),
-    [estimatedEvents, genre, maxDistance, minDistance, resultQuery, resultSort, travelEnabled, travelMinutes, travelStatus],
+    [displayedEvents, genre, maxDistance, minDistance, resultQuery, resultSort],
   );
-  const travelMatchCount = useMemo(
-    () => countTravelMatches(matchingEvents, travelMinutes),
-    [matchingEvents, travelMinutes],
-  );
-  const resultFilterSummary = travelEnabled
-    ? travelStatus === "loading"
-      ? `${travelModeLabel(travelMode)} · calculating…`
-      : `${travelModeLabel(travelMode)} · ≤${travelMinutes} min`
-    : proximitySummary;
   const visibleEvents = filteredEvents.slice(0, visibleCount);
 
   useEffect(
     () => setVisibleCount(RESULTS_PAGE_SIZE),
-    [events, genre, proximity, resultQuery, resultSort, travelEnabled, travelMinutes, travelMode, travelStatus],
+    [events, genre, proximity, resultQuery, resultSort],
   );
 
   useEffect(() => {
@@ -513,13 +530,6 @@ export default function App() {
     setGenre("all");
     setResultQuery("");
     setSearchMeta(null);
-    travelRequestId.current += 1;
-    setTravelEnabled(false);
-    setTravelStatus("idle");
-    setTravelMessage("");
-    setTravelEstimatesByMode({});
-    setTravelMeta(null);
-    if (resultSort === "travel") setResultSort("date");
 
     let dates;
     try {
@@ -580,92 +590,17 @@ export default function App() {
     }
   }
 
-  function useMileageFilters() {
-    travelRequestId.current += 1;
-    setTravelEnabled(false);
-    setTravelStatus("idle");
-    setTravelMessage("");
-    setResultSort((current) => current === "travel" ? "date" : current);
-  }
-
-  function disableTravel(message) {
-    setTravelEnabled(false);
-    setTravelStatus("unavailable");
-    setTravelMessage(message);
-    setTravelMeta(null);
-    setResultSort((current) => current === "travel" ? "date" : current);
-  }
-
-  async function chooseTravelMode(mode) {
-    const option = TRAVEL_MODE_OPTIONS.find((candidate) => candidate.value === mode);
-    if (!option || !resultsUseCurrentLocation || !searchMeta) return;
-
-    const requestId = ++travelRequestId.current;
-    setTravelMode(mode);
-    setTravelMinutes(option.defaultMinutes);
-    setTravelEnabled(true);
-    setProximity((current) => ({ ...current, mode: "all" }));
-    setTravelMessage("");
-
-    if (travelEstimatesByMode[mode]) {
-      setTravelStatus("success");
-      setResultSort("travel");
-      return;
-    }
-
-    const eligibleDestinations = displayedEvents.filter(
-      (event) => event.id && Number.isFinite(event.latitude) && Number.isFinite(event.longitude),
-    );
-    const destinations = eligibleDestinations
-      .slice(0, 100)
-      .map((event) => ({
-        id: event.id,
-        latitude: event.latitude,
-        longitude: event.longitude,
-      }));
-    if (!destinations.length) {
-      disableTravel("These results do not include enough venue coordinates for travel estimates.");
-      return;
-    }
-
-    setTravelStatus("loading");
-    setTravelMeta(null);
+  function chooseMapApp(app, remember) {
+    const normalizedApp = normalizeMapApp(app);
+    if (!normalizedApp) return;
     try {
-      const response = await fetch("/api/travel-times", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode,
-          origin: {
-            latitude: searchMeta.resolvedLocation.latitude,
-            longitude: searchMeta.resolvedLocation.longitude,
-          },
-          destinations,
-        }),
-      });
-      const body = await response.json();
-      if (requestId !== travelRequestId.current) return;
-      if (!response.ok) throw new Error(body.error || "Travel-time estimates are unavailable.");
-      if (!body.meta?.configured) {
-        disableTravel("Precise travel times are not configured yet. Mileage filters are still available.");
-        return;
-      }
-      const estimates = mapTravelEstimates(body.estimates);
-      if (!Object.keys(estimates).length) {
-        disableTravel("No routes were available for these venues. Mileage filters are still available.");
-        return;
-      }
-      setTravelEstimatesByMode((current) => ({ ...current, [mode]: estimates }));
-      setTravelMeta({
-        ...body.meta,
-        truncated: Boolean(body.meta?.truncated || eligibleDestinations.length > destinations.length),
-      });
-      setTravelStatus("success");
-      setResultSort("travel");
-    } catch (error) {
-      if (requestId !== travelRequestId.current) return;
-      disableTravel(error.message || "Travel-time estimates are unavailable. Using mileage instead.");
+      if (remember) window.localStorage.setItem(MAP_APP_STORAGE_KEY, normalizedApp);
+      else window.localStorage.removeItem(MAP_APP_STORAGE_KEY);
+    } catch {
+      // Directions still open when storage is unavailable or disabled.
     }
+    setPreferredMapApp(remember ? normalizedApp : null);
+    setDirectionsEvent(null);
   }
 
   function resetResultRefinements() {
@@ -673,7 +608,6 @@ export default function App() {
     setProximity((current) => ({ ...current, mode: "all" }));
     setResultQuery("");
     setResultSort("date");
-    useMileageFilters();
   }
 
   return (
@@ -815,22 +749,9 @@ export default function App() {
               genreOptions={genreOptions}
               matchingEvents={matchingEvents}
               proximity={proximity}
-              proximitySummary={resultFilterSummary}
+              proximitySummary={proximitySummary}
               resultRadius={resultRadius}
-              resultsUseCurrentLocation={resultsUseCurrentLocation}
-              travel={{
-                enabled: travelEnabled,
-                matchCount: travelMatchCount,
-                maxMinutes: travelMinutes,
-                message: travelMessage,
-                meta: travelMeta,
-                mode: travelMode,
-                status: travelStatus,
-              }}
-              onChooseTravelMode={chooseTravelMode}
               onReset={resetResultRefinements}
-              onTravelMinutesChange={(value) => setTravelMinutes(clampTravelMinutes(value))}
-              onUseMileage={useMileageFilters}
               setGenre={setGenre}
               setProximity={setProximity}
             />
@@ -849,7 +770,6 @@ export default function App() {
                 <select value={resultSort} onChange={(event) => setResultSort(event.target.value)}>
                   <option value="date">Soonest</option>
                   <option value="distance">Nearest</option>
-                  {travelStatus === "success" ? <option value="travel">Shortest trip</option> : null}
                 </select>
               </label>
             </div>
@@ -880,6 +800,8 @@ export default function App() {
             <EventCard
               key={event.id}
               event={event}
+              preferredMapApp={preferredMapApp}
+              onChooseDirections={setDirectionsEvent}
               timeZone={searchMeta?.resolvedLocation?.timeZone}
             />
           ))}
@@ -898,6 +820,14 @@ export default function App() {
         </p>
         <p>City and ZIP suggestions contain <a href="https://www.geonames.org/" target="_blank" rel="noreferrer">GeoNames</a> data licensed under CC BY 4.0.</p>
       </footer>
+      {directionsEvent ? (
+        <DirectionsChooser
+          event={directionsEvent}
+          preferredApp={preferredMapApp}
+          onChoose={chooseMapApp}
+          onClose={() => setDirectionsEvent(null)}
+        />
+      ) : null}
     </main>
   );
 }

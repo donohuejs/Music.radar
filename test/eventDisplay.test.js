@@ -30,21 +30,6 @@ test("filters dense results by venue text and sorts them by distance", () => {
   );
 });
 
-test("filters and sorts results by estimated travel time", () => {
-  const events = [
-    { id: "slow", startTime: "2026-09-01T19:00:00Z", travelMinutes: 42 },
-    { id: "quick", startTime: "2026-09-02T19:00:00Z", travelMinutes: 11 },
-    { id: "unknown", startTime: "2026-09-03T19:00:00Z" },
-    { id: "medium", startTime: "2026-09-04T19:00:00Z", travelMinutes: 28 },
-  ];
-
-  assert.deepEqual(
-    filterAndSortEvents(events, { maxTravelMinutes: 35, sort: "travel" })
-      .map((event) => event.id),
-    ["quick", "medium"],
-  );
-});
-
 test("removes events once their start time has passed", () => {
   const events = [
     { id: "past", startTime: "2026-08-23T12:00:00-04:00" },

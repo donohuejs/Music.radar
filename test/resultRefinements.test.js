@@ -16,8 +16,3 @@ test("counts only result controls that differ from their defaults", () => {
 test("ignores blank result queries", () => {
   assert.equal(countActiveRefinements({ query: "   " }), 0);
 });
-
-test("counts travel time as the proximity refinement", () => {
-  assert.equal(countActiveRefinements({ travelEnabled: true }), 1);
-  assert.equal(countActiveRefinements({ travelEnabled: true, proximityMode: "walkable" }), 1);
-});

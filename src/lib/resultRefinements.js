@@ -3,11 +3,10 @@ export function countActiveRefinements({
   proximityMode = "all",
   query = "",
   sort = "date",
-  travelEnabled = false,
 } = {}) {
   return [
     genre !== "all",
-    travelEnabled || proximityMode !== "all",
+    proximityMode !== "all",
     Boolean(String(query).trim()),
     sort !== "date",
   ].filter(Boolean).length;

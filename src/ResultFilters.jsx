@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import ResultFilterMenu from "./ResultFilterMenu.jsx";
 import { countEventsByProximity } from "./lib/proximityFilters.js";
-import { TRAVEL_MODE_OPTIONS } from "./lib/travelTimeFilters.js";
 
 export default function ResultFilters({
   availableProximityPresets,
@@ -14,12 +13,7 @@ export default function ResultFilters({
   proximity,
   proximitySummary,
   resultRadius,
-  resultsUseCurrentLocation,
-  travel,
-  onChooseTravelMode,
   onReset,
-  onTravelMinutesChange,
-  onUseMileage,
   setGenre,
   setProximity,
 }) {
@@ -37,13 +31,12 @@ export default function ResultFilters({
   }
 
   function chooseDistance(mode, closePopover) {
-    onUseMileage();
     setProximity((current) => ({ ...current, mode }));
     closePopover({ restoreFocus: true });
   }
 
   return (
-    <div className="filter-menu-bar" role="group" aria-label="Genre and travel filters">
+    <div className="filter-menu-bar" role="group" aria-label="Genre and distance filters">
       <ResultFilterMenu
         name="genre"
         label="Genre"
@@ -79,9 +72,9 @@ export default function ResultFilters({
       </ResultFilterMenu>
       <ResultFilterMenu
         name="distance"
-        label="Travel"
+        label="Distance"
         value={proximitySummary}
-        active={travel.enabled || proximity.mode !== "all"}
+        active={proximity.mode !== "all"}
         align="right"
         openFilter={openFilter}
         onOpen={openMenu}
@@ -90,94 +83,36 @@ export default function ResultFilters({
         {(closePopover) => (
           <div className="proximity-filter">
             <div className="proximity-filter__heading">
-              <strong>Travel time from you</strong>
-              <small>Estimated leaving now.</small>
-            </div>
-            <div className="travel-mode-options" role="group" aria-label="Travel mode">
-              {TRAVEL_MODE_OPTIONS.map((option) => (
-                <button
-                  className={travel.enabled && travel.mode === option.value ? "is-active" : ""}
-                  key={option.value}
-                  type="button"
-                  disabled={!resultsUseCurrentLocation || travel.status === "loading"}
-                  onClick={() => onChooseTravelMode(option.value)}
-                  aria-pressed={travel.enabled && travel.mode === option.value}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            {resultsUseCurrentLocation ? (
-              travel.enabled ? (
-                <div className="travel-time-control" aria-busy={travel.status === "loading"}>
-                  <label htmlFor="travel-time-range">
-                    Maximum travel time
-                    <strong>{travel.maxMinutes} minutes</strong>
-                  </label>
-                  <input
-                    id="travel-time-range"
-                    type="range"
-                    min="10"
-                    max="60"
-                    step="5"
-                    value={travel.maxMinutes}
-                    onChange={(event) => onTravelMinutesChange(event.target.value)}
-                  />
-                  <small aria-live="polite">
-                    {travel.status === "loading"
-                      ? "Calculating routes…"
-                      : `${travel.matchCount} of ${matchingEvents.length} events match.`}
-                  </small>
-                  {travel.meta?.truncated ? (
-                    <small>Travel estimates cover the first 100 upcoming events.</small>
-                  ) : null}
-                  <button className="travel-time-control__fallback" type="button" onClick={onUseMileage}>
-                    Use mileage instead
-                  </button>
-                </div>
-              ) : travel.message ? (
-                <small className="proximity-filter__note" role="status">{travel.message}</small>
-              ) : (
-                <small className="proximity-filter__note">Choose a mode to calculate precise travel times.</small>
-              )
-            ) : (
-              <small className="proximity-filter__note">
-                Use current location to unlock walking, transit, and car estimates.
-              </small>
-            )}
-            <div className="proximity-filter__divider" aria-hidden="true" />
-            <div className="proximity-filter__heading">
-              <strong>Mileage fallback</strong>
-              <small>The scan still covers {resultRadius} miles.</small>
+              <strong>Distance from the search center</strong>
+              <small>The scan covers {resultRadius} miles.</small>
             </div>
             <div className="proximity-options" role="group" aria-label="Filter results by distance">
               <button
-                className={!travel.enabled && proximity.mode === "all" ? "is-active" : ""}
+                className={proximity.mode === "all" ? "is-active" : ""}
                 type="button"
                 onClick={() => chooseDistance("all", closePopover)}
-                aria-pressed={!travel.enabled && proximity.mode === "all"}
+                aria-pressed={proximity.mode === "all"}
               >
                 All ({proximityCounts.all})
               </button>
               {availableProximityPresets.map((option) => (
                 <button
-                  className={!travel.enabled && proximity.mode === option.value ? "is-active" : ""}
+                  className={proximity.mode === option.value ? "is-active" : ""}
                   key={option.value}
                   type="button"
                   onClick={() => chooseDistance(option.value, closePopover)}
-                  aria-pressed={!travel.enabled && proximity.mode === option.value}
+                  aria-pressed={proximity.mode === option.value}
                 >
                   {option.label} · {option.rangeLabel} ({proximityCounts.presets[option.value]})
                 </button>
               ))}
               <button
-                className={!travel.enabled && proximity.mode === "custom" ? "is-active" : ""}
+                className={proximity.mode === "custom" ? "is-active" : ""}
                 type="button"
                 onClick={() => {
-                  onUseMileage();
                   setProximity((current) => ({ ...current, mode: "custom" }));
                 }}
-                aria-pressed={!travel.enabled && proximity.mode === "custom"}
+                aria-pressed={proximity.mode === "custom"}
               >
                 Custom
               </button>
