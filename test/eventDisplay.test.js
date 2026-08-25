@@ -7,6 +7,7 @@ import {
   eventLocationDisplay,
   filterAndSortEvents,
   filterUpcomingEvents,
+  genreDisplayLabel,
   groupTheaterRuns,
   scanButtonLabel,
 } from "../src/lib/eventDisplay.js";
@@ -73,6 +74,18 @@ test("surfaces the venue from legacy generic-calendar location data", () => {
     primary: "New Groove Artisan Brewery",
     secondary: "4078 South Carolina 9 · Boiling Springs, SC 29316",
   });
+});
+
+test("distinguishes pending and unavailable genre coverage", () => {
+  assert.equal(
+    genreDisplayLabel({ genreStatus: "pending" }, "Genre not listed"),
+    "Genre lookup pending",
+  );
+  assert.equal(
+    genreDisplayLabel({ genreStatus: "unavailable" }, "Genre not listed"),
+    "Genre not available",
+  );
+  assert.equal(genreDisplayLabel({ genreStatus: "matched" }, "Rock"), "Rock");
 });
 
 test("explains event confidence using available evidence", () => {

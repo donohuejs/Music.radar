@@ -40,8 +40,8 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
   date held for human review before publication.
 - Protected poster review with editable event details, required IANA time-zone
   validation, audited publication, stable event IDs, and draft dismissal.
-- Cached, conservative, provider-neutral artist genre enrichment, currently
-  backed by MusicBrainz.
+- Cached, conservative, provider-neutral artist genre enrichment, with a
+  distinct-artist work queue currently backed by MusicBrainz.
 
 ## Local development
 
@@ -144,12 +144,15 @@ Invoke-RestMethod `
   -Body '{"limit":8}'
 ```
 
-Both operations also run on schedules. The genre workflow repeatedly requests
-batches of four and follows Firestore page cursors until the complete eligible
-backlog is drained. It saves its cursor between workflow runs, processes at most
-80 batches per run, and resumes on the next schedule; provider and API failures
-still fail visibly without discarding completed progress. Manual calls are useful
-immediately after deploying normalization changes or when diagnosing data gaps.
+Both operations also run on schedules. Ingestion extracts conservative artist
+names from event titles and adds one queue record per distinct artist. The genre
+workflow repeatedly requests batches of four; one successful artist match
+updates every queued event for that artist. It processes at most 80 batches per
+run, and remaining records stay in Firestore for the next schedule. Provider and
+API failures still fail visibly without discarding completed progress. Manual
+calls are useful immediately after deploying normalization changes or when
+diagnosing data gaps. On first deployment, a durable Firestore cursor also
+backfills the complete existing unknown-genre collection in bounded pages.
 
 The `Discover local event sources` GitHub workflow can also be started manually
 with optional latitude, longitude, radius, and force inputs. The force input
@@ -209,8 +212,9 @@ completed discovery cells that produced no registered local source.
 
 The dashboard also summarizes cached genre-provider impact: provider matches,
 Discogs-only incremental coverage, corroboration, conflicts, errors, affected
-events, and recent artist outcomes. Discogs evidence older than six hours is
-excluded from dashboard details and supporting links.
+events, recent artist outcomes, and the number of distinct artists still
+awaiting enrichment. Discogs evidence older than six hours is excluded from
+dashboard details and supporting links.
 
 ## Documentation
 

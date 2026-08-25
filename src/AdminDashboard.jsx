@@ -380,6 +380,7 @@ export default function AdminDashboard() {
               ["Review candidates", diagnostics.summary.reviewCandidates],
               ["Failed runs", diagnostics.summary.failedRuns],
               ["Coverage warnings", diagnostics.summary.blindSpotSearches],
+              ["Pending genre artists", diagnostics.summary.pendingGenreArtists],
             ].map(([label, value]) => (
               <article className="ops-metric" key={label}><strong>{value}</strong><span>{label}</span></article>
             ))}

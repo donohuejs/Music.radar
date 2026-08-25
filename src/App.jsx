@@ -13,6 +13,7 @@ import {
   eventLocationDisplay,
   filterAndSortEvents,
   filterUpcomingEvents,
+  genreDisplayLabel,
   groupTheaterRuns,
   scanButtonLabel,
 } from "./lib/eventDisplay.js";
@@ -261,7 +262,7 @@ function EventCard({ event, preferredMapApp, onChooseDirections, timeZone }) {
             </span>
           ) : null}
           {(event.genres || []).map((genre) => (
-            <span className="genre-tag" key={genre}>{genre}</span>
+            <span className="genre-tag" key={genre}>{genreDisplayLabel(event, genre)}</span>
           ))}
           {event.genreAttribution?.provider === "discogs" ? (
             <a

@@ -25,6 +25,13 @@ export function eventCategoryLabel(category) {
   return CATEGORY_LABELS[category] || String(category || "").replaceAll("_", " ");
 }
 
+export function genreDisplayLabel(event, genre) {
+  if (genre !== "Genre not listed") return genre;
+  if (event?.genreStatus === "pending") return "Genre lookup pending";
+  if (event?.genreStatus === "unavailable") return "Genre not available";
+  return genre;
+}
+
 function looksLikeStreetAddress(value) {
   return /^(?:\d+\b|p\.?\s*o\.?\s+box\b)/i.test(String(value || "").trim());
 }

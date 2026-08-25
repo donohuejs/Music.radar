@@ -1,6 +1,6 @@
 # Music Radar project handoff
 
-Updated: 2026-08-24
+Updated: 2026-08-25
 
 ## Mission
 
@@ -25,7 +25,7 @@ Scheduled workers
   -> registered source ingestion -> normalized Firestore events
   -> discovery -> candidate calendars/pages/posters -> validated sources
   -> poster extraction -> stored OCR text -> review-only structured drafts
-  -> provider-neutral enrichment -> MusicBrainz evidence -> cached artist genres -> updated events
+  -> distinct-artist genre queue -> provider-neutral enrichment -> cached evidence -> all matching events
 ```
 
 The protected operations dashboard also accepts field photographs and social
@@ -52,7 +52,8 @@ closed to URL-only feedback when the bounded image queue is full.
 The React/Vite client is deployed by Vercel from GitHub `main`. Vercel API
 functions implement search and protected operational endpoints. Firebase Admin
 stores indexed events, registered sources, discovery state, ingestion records,
-and provider-neutral artist-genre cache records. Discogs and Apple Music are
+a distinct-artist enrichment queue, and provider-neutral artist-genre cache
+records. Discogs and Apple Music are
 optional credentialed corroboration providers, while MusicBrainz remains the
 no-key fallback. The cache preserves every provider's evidence without changing
 event documents or the enrichment endpoint; when multiple providers match,
@@ -80,6 +81,8 @@ Important normalized fields include:
 - `category`: `music`, `participatory`, `trivia` (including music bingo), `theater`, `comedy`,
   `community`, or `other`
 - `genres`, using `Genre not listed` instead of invented metadata
+- `artistNames`, normalized `artistLookupKeys`, and `genreStatus`, which separate
+  pending artist lookups from genuinely unavailable genre data
 - source attribution, confidence, and verification timestamps
 
 Normalization rejects conservative, explicit no-performance placeholders such
@@ -118,14 +121,14 @@ poster/PDF assets.
   serverless deadline. Queue selection is priority-aware and oldest-first,
   interrupted jobs are recovered through expiring leases, and complete search
   radii retain their outer discovery cells.
-- `.github/workflows/genre-enrichment.yml` drains MusicBrainz work in bounded
-  batches of four while following event-page cursors until the complete
-  eligible collection has been scanned. Event pages are capped to the same
-  four-document lookup budget so successful batches always advance without
-  skipping events or repeatedly reading a large partial page. The workflow
-  caches its cursor, resumes it across scheduled runs, and stops successfully
-  after 80 batches per run. API and provider failures still fail the run, while
-  the always-run cache step preserves the last successfully completed page.
+- `.github/workflows/genre-enrichment.yml` drains a Firestore queue in bounded
+  batches of four distinct artists. Source ingestion adds or refreshes one job
+  per artist, and a successful lookup updates every event carrying that artist's
+  lookup key. This prevents recurring listings for one performer from starving
+  the rest of the catalog. A durable document cursor backfills every existing
+  unknown-genre event in bounded pages, while ingestion directly queues new
+  artists. Completed jobs are deleted, retryable failures are delayed, and
+  unfinished jobs remain durable when a run reaches its 80-batch limit.
 - Both GitHub workflows use `MUSIC_RADAR_INGEST_SECRET`.
 
 ## Security and operations
@@ -144,8 +147,8 @@ poster/PDF assets.
   enforced in both indexed ingestion and merged live search results.
 - Genre-provider impact is aggregated from `artistGenreCache` in `/admin`,
   including Discogs-only lift, corroboration, conflicts, errors, affected events,
-  and recent artist outcomes. Stale Discogs evidence is excluded from returned
-  detail rows.
+  recent artist outcomes, and the pending distinct-artist queue size. Stale
+  Discogs evidence is excluded from returned detail rows.
 - Indexed searches write coarse `searchCoverage` diagnostics with no user
   identifier or precise coordinates. Records carry a 30-day retention marker
   and new searches opportunistically remove expired records. The dashboard aggregates these into
@@ -176,8 +179,10 @@ poster/PDF assets.
    titles, times, and time zones require human validation in `/admin` before
    events can be published. Published drafts receive stable event IDs and an
    audit record; structured recurring-series data remains the verified fallback.
-2. Many small/local artists are absent from MusicBrainz. Exact-name and
-   high-confidence matching intentionally leaves uncertain artists unclassified.
+2. Many small/local artists are absent from MusicBrainz. Artist-level queuing
+   prevents repeat listings from blocking new performers, but exact-name and
+   high-confidence matching still intentionally leaves uncertain artists
+   unclassified.
 3. Discovery now recognizes linked JSON-LD event listings as durable sources,
    including conventional `/event/` and Wix-style `/event-details/` routes
    through one reusable matcher. Novel JavaScript calendars and HTML-only event
@@ -200,8 +205,8 @@ poster/PDF assets.
    professional social accounts to the now-shared public/operator media intake.
 4. Test several contrasting markets: a dense major city, a midsize city, a
    rural/tourism area, and an international destination.
-5. Add monitoring for ingestion failures, stale sources, enrichment backlog,
-   duplicates, and events with missing coordinates.
+5. Expand enrichment monitoring beyond the existing queue count with age and
+   retry alerts, alongside duplicate and missing-coordinate monitoring.
 
 ## Starting a fresh Codex task
 

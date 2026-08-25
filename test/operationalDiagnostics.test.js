@@ -25,6 +25,10 @@ test("summarizes actionable operational health without mutating records", () => 
     searches: [
       { id: "search", displayName: "Chicago, IL", searchedAt: "2026-08-05T11:00:00Z", blindSpot: true, coverageState: "commercial-only", weakDiscoveryCellCount: 2, sourceContributors: ["Ticketmaster"] },
     ],
+    genreQueue: [
+      { id: "later", artistName: "Later Artist", priorityStartTime: "2026-09-02T20:00:00Z" },
+      { id: "soon", artistName: "Soon Artist", priorityStartTime: "2026-08-28T20:00:00Z" },
+    ],
   }, now);
 
   assert.equal(diagnostics.summary.enabledSources, 2);
@@ -36,6 +40,8 @@ test("summarizes actionable operational health without mutating records", () => 
   assert.equal(diagnostics.summary.failedRuns, 1);
   assert.equal(diagnostics.summary.blindSpotSearches, 1);
   assert.equal(diagnostics.summary.commercialOnlySearches, 1);
+  assert.equal(diagnostics.summary.pendingGenreArtists, 2);
+  assert.equal(diagnostics.genreEnrichmentQueue[0].id, "soon");
   assert.equal(diagnostics.coverageAreas[0].displayName, "Chicago, IL");
   assert.equal(diagnostics.coverageAreas[0].weakDiscoveryCellCount, 2);
   assert.equal(diagnostics.sources[0].id, "broken");

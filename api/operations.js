@@ -379,13 +379,14 @@ export default async function handler(request, response) {
       loadOperationalCollection("Operational audit", () => db.collection("operationalAudit").orderBy("createdAt", "desc").limit(100).get()),
       loadOperationalCollection("Search coverage", () => db.collection("searchCoverage").orderBy("searchedAt", "desc").limit(200).get()),
       loadOperationalCollection("Artist genre cache", () => db.collection("artistGenreCache").limit(1000).get()),
+      loadOperationalCollection("Genre enrichment queue", () => db.collection("genreEnrichmentQueue").orderBy("priorityStartTime", "asc").limit(1000).get()),
       loadOperationalCollection("Event suppressions", () => db.collection("eventSuppressions").orderBy("updatedAt", "desc").limit(200).get()),
     ]);
     const collectionFailure = operationalCollectionFailure(collections);
     if (collectionFailure) {
       return response.status(503).json({ error: collectionFailure });
     }
-    const [sources, jobs, candidates, runs, audits, searches, genreCaches, suppressions] = collections;
+    const [sources, jobs, candidates, runs, audits, searches, genreCaches, genreQueue, suppressions] = collections;
     const diagnostics = buildOperationalDiagnostics({
         sources: sources.documents,
         jobs: jobs.documents,
@@ -394,12 +395,13 @@ export default async function handler(request, response) {
         audits: audits.documents,
         searches: searches.documents,
         genreCaches: genreCaches.documents,
+        genreQueue: genreQueue.documents,
       });
     return response.status(200).json({
       ...diagnostics,
       eventSuppressions: suppressions.documents,
       collectionHealth: Object.fromEntries(
-        ["sources", "discoveryJobs", "sourceCandidates", "ingestionRuns", "operationalAudit", "searchCoverage", "artistGenreCache", "eventSuppressions"]
+        ["sources", "discoveryJobs", "sourceCandidates", "ingestionRuns", "operationalAudit", "searchCoverage", "artistGenreCache", "genreEnrichmentQueue", "eventSuppressions"]
           .map((name, index) => [name, collections[index].health]),
       ),
     });
