@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   buildMapUrl,
+  buildNativeMapUrl,
+  launchMapApp,
   mapAppLabel,
   mapDestination,
   normalizeMapApp,
@@ -24,7 +26,7 @@ test("builds free universal directions links from venue coordinates", () => {
   assert.equal(google.origin, "https://www.google.com");
   assert.equal(google.searchParams.get("destination"), "40.758,-73.989");
   assert.equal(google.searchParams.get("api"), "1");
-  assert.equal(google.searchParams.get("dir_action"), "navigate");
+  assert.equal(google.searchParams.get("dir_action"), null);
 
   const apple = new URL(buildMapUrl("apple", coordinateOnlyVenue));
   assert.equal(apple.origin, "https://maps.apple.com");
@@ -36,6 +38,79 @@ test("builds free universal directions links from venue coordinates", () => {
   assert.equal(waze.origin, "https://waze.com");
   assert.equal(waze.searchParams.get("ll"), "40.758,-73.989");
   assert.equal(waze.searchParams.get("navigate"), "yes");
+});
+
+test("builds direct app links for every explicit map choice", () => {
+  const apple = new URL(buildNativeMapUrl("apple", venue));
+  assert.equal(apple.protocol, "http:");
+  assert.equal(apple.hostname, "maps.apple.com");
+  assert.equal(apple.searchParams.get("daddr"), mapDestination(venue).query);
+  assert.equal(apple.searchParams.get("dirflg"), "d");
+
+  const google = new URL(buildNativeMapUrl("google", venue));
+  assert.equal(google.protocol, "comgooglemaps:");
+  assert.equal(google.searchParams.get("daddr"), mapDestination(venue).query);
+  assert.equal(google.searchParams.get("directionsmode"), "driving");
+
+  const waze = new URL(buildNativeMapUrl("waze", venue));
+  assert.equal(waze.protocol, "waze:");
+  assert.equal(waze.searchParams.get("q"), mapDestination(venue).query);
+  assert.equal(waze.searchParams.get("navigate"), "yes");
+});
+
+test("falls back to web directions only when an app handoff stays visible", () => {
+  const expectedProtocols = {
+    apple: "http:",
+    google: "comgooglemaps:",
+    waze: "waze:",
+  };
+
+  for (const app of ["apple", "google", "waze"]) {
+    const navigations = [];
+    const listeners = new Map();
+    const documentObject = {
+      visibilityState: "visible",
+      addEventListener: (name, listener) => listeners.set(name, listener),
+      removeEventListener: (name) => listeners.delete(name),
+    };
+    let fallback;
+
+    assert.equal(launchMapApp(app, venue, {
+      documentObject,
+      navigate: (url) => navigations.push(url),
+      schedule: (callback) => { fallback = callback; return 1; },
+      cancelSchedule: () => {},
+    }), true);
+    assert.equal(new URL(navigations[0]).protocol, expectedProtocols[app]);
+
+    fallback();
+    assert.equal(new URL(navigations[1]).protocol, "https:");
+  }
+});
+
+test("cancels the web fallback after any native map app opens", () => {
+  for (const app of ["apple", "google", "waze"]) {
+    const navigations = [];
+    const listeners = new Map();
+    let cancelled = false;
+    const documentObject = {
+      visibilityState: "visible",
+      addEventListener: (name, listener) => listeners.set(name, listener),
+      removeEventListener: (name) => listeners.delete(name),
+    };
+
+    launchMapApp(app, venue, {
+      documentObject,
+      navigate: (url) => navigations.push(url),
+      schedule: () => 1,
+      cancelSchedule: () => { cancelled = true; },
+    });
+    documentObject.visibilityState = "hidden";
+    listeners.get("visibilitychange")();
+
+    assert.equal(cancelled, true);
+    assert.equal(navigations.length, 1);
+  }
 });
 
 test("falls back to a venue address and rejects events without a destination", () => {

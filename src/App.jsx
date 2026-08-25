@@ -22,6 +22,8 @@ import { buildSearchContext } from "./lib/searchContext.js";
 import { countActiveRefinements } from "./lib/resultRefinements.js";
 import {
   buildMapUrl,
+  buildNativeMapUrl,
+  launchMapApp,
   MAP_APP_STORAGE_KEY,
   mapAppLabel,
   normalizeMapApp,
@@ -216,7 +218,7 @@ function EventCard({ event, preferredMapApp, onChooseDirections, timeZone }) {
   const location = eventLocationDisplay(event);
   const fallbackDirectionsUrl = buildMapUrl("google", event);
   const preferredDirectionsUrl = preferredMapApp
-    ? buildMapUrl(preferredMapApp, event)
+    ? buildNativeMapUrl(preferredMapApp, event)
     : null;
 
   return (
@@ -286,6 +288,10 @@ function EventCard({ event, preferredMapApp, onChooseDirections, timeZone }) {
                   className="button button--small button--directions"
                   href={preferredDirectionsUrl}
                   aria-label={`Directions with ${mapAppLabel(preferredMapApp)}`}
+                  onClick={(clickEvent) => {
+                    clickEvent.preventDefault();
+                    launchMapApp(preferredMapApp, event);
+                  }}
                 >
                   Directions
                 </a>

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { buildMapUrl, MAP_APP_OPTIONS } from "./lib/mapLinks.js";
+import { buildNativeMapUrl, launchMapApp, MAP_APP_OPTIONS } from "./lib/mapLinks.js";
 
 const FOCUSABLE_SELECTOR = "a[href], button:not([disabled]), input:not([disabled])";
 
@@ -67,9 +67,13 @@ export default function DirectionsChooser({ event, preferredApp, onChoose, onClo
           {MAP_APP_OPTIONS.map((option) => (
             <a
               className={preferredApp === option.value ? "is-preferred" : ""}
-              href={buildMapUrl(option.value, event)}
+              href={buildNativeMapUrl(option.value, event)}
               key={option.value}
-              onClick={() => onChoose(option.value, remember)}
+              onClick={(clickEvent) => {
+                clickEvent.preventDefault();
+                onChoose(option.value, remember);
+                launchMapApp(option.value, event);
+              }}
             >
               <span>
                 <strong>{option.label}</strong>
