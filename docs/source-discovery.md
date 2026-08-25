@@ -41,9 +41,10 @@ stored for the area.
    successful runs can promote a source to trusted; three consecutive failures
    degrade it for review.
 8. PDF or image schedules are retained with `status: needs-extraction` and a
-   private storage path. The protected API issues a short-lived signed asset URL
-   to the GitHub Actions worker, which runs Poppler or Tesseract only when the
-   asset hash changes, then saves the extracted text on the candidate.
+   private evidence reference. User-submitted images live in a bounded Firestore
+   evidence queue; the protected API returns the bytes to the GitHub Actions
+   worker, which runs Poppler or Tesseract only when the asset hash changes and
+   then saves the extracted text on the candidate.
 9. Operators can submit a field photograph or social screenshot through the
    protected dashboard. It uses the same candidate, OCR, review, and publication
    path, so future authorized social connectors can create media leads without
@@ -58,6 +59,8 @@ The system stores operational state in:
 
 - `discoveryJobs`: deduplicated location coverage jobs.
 - `sourceCandidates`: scored calendars, event pages, and poster assets.
+- `mediaEvidence`: private, aggressively compressed user-submitted images with
+  a 90-day expiry marker and a hard 500-item queue cap.
 - `sources`: approved or high-confidence automatically registered sources.
 
 ## GitHub Actions setup
@@ -85,8 +88,9 @@ an existing reusable parser, after which the workflow runs source ingestion.
 - Localhost and private-address URLs are rejected.
 - Anonymous feedback is limited to five submissions per hashed client address
   per rolling day and includes a honeypot; raw client addresses are not stored.
-- Uploaded evidence is private. Only short-lived signed links are returned by
-  protected worker and operations endpoints.
+- Uploaded evidence is private and is returned only by protected worker and
+  operations endpoints. Images are limited to 550 KB, the queue is capped at
+  500 items, and completed or expired evidence is deleted.
 - A failed organization does not stop the rest of a location job.
 - Poster detection requires an actual PDF or image asset; an ordinary page named
   `shows`, `lineup`, or `schedule` is not sent to OCR.

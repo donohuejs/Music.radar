@@ -37,7 +37,11 @@ function extension(contentType, url) {
   if (/pdf/i.test(contentType)) return ".pdf";
   if (/png/i.test(contentType)) return ".png";
   if (/jpe?g/i.test(contentType)) return ".jpg";
-  return extname(new URL(url).pathname) || ".asset";
+  try {
+    return extname(new URL(url).pathname) || ".asset";
+  } catch {
+    return ".asset";
+  }
 }
 
 async function extractText(assetPath, contentType, workingDirectory) {
@@ -66,8 +70,14 @@ async function extractText(assetPath, contentType, workingDirectory) {
 }
 
 async function processCandidate(candidate) {
-  const response = await fetch(candidate.assetUrl, {
-    headers: { "User-Agent": "MusicRadarPosterWorker/1.0" },
+  const evidencePath = candidate.evidenceDocumentId
+    ? `/api/discover?mediaEvidenceId=${encodeURIComponent(candidate.evidenceDocumentId)}`
+    : null;
+  const response = await fetch(evidencePath ? `${apiBase}${evidencePath}` : candidate.assetUrl, {
+    headers: {
+      "User-Agent": "MusicRadarPosterWorker/1.0",
+      ...(evidencePath ? { Authorization: `Bearer ${secret}` } : {}),
+    },
   });
   if (!response.ok) throw new Error(`Asset returned HTTP ${response.status}`);
   const bytes = Buffer.from(await response.arrayBuffer());
@@ -109,7 +119,10 @@ for (const [command, args] of [
 
 const { candidates } = await api("/api/discover");
 const pending = candidates
-  .filter((candidate) => candidate.status === "needs-extraction" && candidate.assetUrl)
+  .filter((candidate) =>
+    candidate.status === "needs-extraction" &&
+    (candidate.evidenceDocumentId || candidate.assetUrl),
+  )
   .slice(0, 10);
 const results = [];
 for (const candidate of pending) {

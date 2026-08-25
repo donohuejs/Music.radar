@@ -28,5 +28,13 @@ service cloud.firestore {
     match /sourceCandidates/{candidateId} {
       allow read, write: if false;
     }
+
+    match /mediaEvidence/{evidenceId} {
+      allow read, write: if false;
+    }
+
+    match /systemCounters/{counterId} {
+      allow read, write: if false;
+    }
   }
 }

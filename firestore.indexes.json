@@ -9,5 +9,11 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "mediaEvidence",
+      "fieldPath": "bytes",
+      "indexes": []
+    }
+  ]
 }

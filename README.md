@@ -33,7 +33,8 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
   optional pasted OCR for immediate processing and scheduled OCR otherwise.
 - Public missing-event feedback from the footer and sparse-result states,
   accepting a poster/screenshot, an artist or venue events-page link, or both.
-  Submissions are deduplicated, rate-limited, and held for human review.
+  Submissions are deduplicated, rate-limited, and held for human review in a
+  bounded evidence queue compatible with Firebase's no-cost Spark plan.
 - Conservative poster draft extraction requiring explicit years or a supplied
   capture date corroborated by a stated recurring weekday, with every inferred
   date held for human review before publication.
@@ -68,7 +69,6 @@ Vercel server variables:
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_CLIENT_EMAIL`
 - `FIREBASE_PRIVATE_KEY`
-- `FIREBASE_STORAGE_BUCKET` (stores media-lead evidence for OCR and review)
 - `FEEDBACK_RATE_LIMIT_SALT` (optional dedicated salt for hashed public-feedback rate limits)
 - `TICKETMASTER_API_KEY`
 - `INGEST_SECRET`
@@ -176,8 +176,10 @@ they can be reversed from the dashboard.
 
 Operators can also submit photographed posters or social screenshots. The
 browser compresses the image before the protected API stores it in Firebase
-Storage as a private object. Short-lived signed links are created only for the
-protected dashboard and OCR worker. Venue coordinates, capture date,
+Firestore as a private evidence document. The queue accepts at most 500 images,
+limits each image to 550 KB, and removes evidence after the review is complete
+or it reaches 90 days old. Evidence is returned only through authenticated
+dashboard and OCR endpoints. Venue coordinates, capture date,
 time zone, optional recurring weekday, source URL, and optional device OCR text
 are retained with the review candidate. Pasted text creates drafts immediately;
 otherwise the scheduled discovery workflow runs Tesseract. Dates with an
@@ -190,6 +192,11 @@ submissions per rolling day, uses a bot honeypot, and deduplicates identical
 images or URLs. Raw client addresses are never stored. These community leads
 enter the same protected candidate/OCR queue and can never publish without an
 operator review action.
+
+This media path deliberately avoids Cloud Storage and remains compatible with
+the Firebase Spark plan. At the queue limit, image submissions fail closed with
+a request to provide an event-page URL; the application never enables billing
+or silently expands storage capacity.
 
 Successful indexed searches also write a coarse coverage diagnostic with a
 30-day retention marker to

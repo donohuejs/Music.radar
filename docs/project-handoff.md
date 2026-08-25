@@ -30,7 +30,9 @@ Scheduled workers
 
 The protected operations dashboard also accepts field photographs and social
 screenshots as media leads. Images are compressed in the browser, stored in
-Firebase Storage, and sent through the existing scheduled OCR worker. Optional
+private Firestore evidence documents, and sent through the existing scheduled
+OCR worker. The queue is capped at 500 images of at most 550 KB and evidence is
+removed after completed review or 90 days. Optional
 pasted device OCR produces drafts immediately. Capture dates and stated weekly
 recurrence can establish a candidate year when most poster dates agree with the
 weekday, but all inferred dates require operator review before publication.
@@ -38,10 +40,14 @@ weekday, but all inferred dates require operator review before publication.
 The public app exposes the same review-only intake from its footer and sparse or
 empty result states. A visitor can submit a poster/screenshot, an artist or venue
 events-page URL, or both without providing coordinates or a time zone. Images
-remain private and are exposed to authenticated reviewers and the OCR worker
-through short-lived signed URLs. URL/image identities deduplicate repeats;
+remain private and are exposed only through authenticated reviewer and OCR
+endpoints. URL/image identities deduplicate repeats;
 hashed-address rolling limits and a honeypot bound anonymous abuse. Public tips
 never bypass the candidate queue or publish automatically.
+
+The evidence design is intentionally compatible with the Firebase Spark plan:
+it does not use Cloud Storage, cannot create metered Storage overages, and fails
+closed to URL-only feedback when the bounded image queue is full.
 
 The React/Vite client is deployed by Vercel from GitHub `main`. Vercel API
 functions implement search and protected operational endpoints. Firebase Admin

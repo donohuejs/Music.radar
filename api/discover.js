@@ -1,4 +1,4 @@
-import { getAdminBucket, getAdminDb } from "../lib/server/firebaseAdmin.js";
+import { getAdminDb } from "../lib/server/firebaseAdmin.js";
 import {
   claimDiscoveryJob,
   discoveryFailureState,
@@ -11,7 +11,7 @@ import { sourceDocument } from "../lib/server/sourceRegistry.js";
 import { discoverLocationSourceBatch } from "../lib/server/sourceDiscovery.js";
 import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 import { extractPosterDrafts } from "../lib/server/posterDrafts.js";
-import { attachSignedAssetUrls } from "../lib/server/mediaLeads.js";
+import { loadMediaEvidence } from "../lib/server/mediaEvidence.js";
 
 function authorized(request) {
   const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "");
@@ -203,15 +203,24 @@ export default async function handler(request, response) {
   if (!db) return response.status(503).json({ error: "Firebase Admin is not configured." });
 
   if (request.method === "GET") {
+    if (request.query?.mediaEvidenceId) {
+      try {
+        const evidence = await loadMediaEvidence(db, request.query.mediaEvidenceId);
+        response.setHeader("Cache-Control", "private, no-store");
+        response.setHeader("Content-Type", evidence.contentType);
+        response.setHeader("Content-Length", String(evidence.bytes.length));
+        return response.status(200).send(evidence.bytes);
+      } catch (error) {
+        return response.status(404).json({ error: error.message });
+      }
+    }
     const snapshot = await db
       .collection("sourceCandidates")
       .where("status", "==", "needs-extraction")
       .limit(100)
       .get();
     const candidates = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    return response.status(200).json({
-      candidates: await attachSignedAssetUrls(getAdminBucket(), candidates, { expiresInMs: 30 * 60 * 1000 }),
-    });
+    return response.status(200).json({ candidates });
   }
 
   if (request.method !== "POST") {

@@ -2,14 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  attachSignedAssetUrls,
   buildMediaLead,
   buildPublicDiscoveryLead,
+  MAX_MEDIA_BYTES,
   mediaLeadIdentity,
   parseMediaDataUrl,
   publicHttpUrl,
   publicLeadIdentity,
-  storageObject,
 } from "../lib/server/mediaLeads.js";
 
 test("validates and normalizes an operator poster lead", () => {
@@ -30,12 +29,14 @@ test("accepts bounded image data and creates stable identity", () => {
   const parsed = parseMediaDataUrl("data:image/jpeg;base64,/9j/AA==");
   assert.equal(parsed.bytes.subarray(0, 3).toString("hex"), "ffd8ff");
   assert.deepEqual(mediaLeadIdentity(parsed.bytes, "Poster"), mediaLeadIdentity(parsed.bytes, "Poster"));
-  assert.equal(storageObject(parsed.contentType, "id").path, "media-leads/id/poster.jpg");
 });
 
 test("rejects unsafe media lead input", () => {
   assert.throws(() => parseMediaDataUrl("data:text/plain;base64,aGVsbG8="), /JPEG/);
   assert.throws(() => parseMediaDataUrl("data:image/jpeg;base64,aGVsbG8="), /contents/);
+  const oversized = Buffer.alloc(MAX_MEDIA_BYTES + 1);
+  oversized.set([0xff, 0xd8, 0xff]);
+  assert.throws(() => parseMediaDataUrl(`data:image/jpeg;base64,${oversized.toString("base64")}`), /550 KB/);
   assert.throws(() => buildMediaLead({ name: "Poster", latitude: 200, longitude: 0 }), /latitude/);
   assert.throws(() => buildMediaLead({ name: "Poster", latitude: 1, longitude: 1, sourceUrl: "file:///tmp/a" }), /HTTP/);
 });
@@ -68,17 +69,4 @@ test("deduplicates public poster evidence by its bytes", () => {
   const second = publicLeadIdentity({ bytes: Buffer.from("same poster"), sourceUrl: "https://two.example" });
   assert.deepEqual(first, second);
   assert.equal(first.assetHash.length, 64);
-});
-
-test("adds a short-lived signed reviewer URL without persisting it", async () => {
-  const candidates = [{ id: "lead", assetStoragePath: "community-leads/lead/poster.jpg" }];
-  const bucket = {
-    file(path) {
-      assert.equal(path, candidates[0].assetStoragePath);
-      return { getSignedUrl: async () => ["https://signed.example/poster"] };
-    },
-  };
-  const signed = await attachSignedAssetUrls(bucket, candidates);
-  assert.equal(signed[0].assetUrl, "https://signed.example/poster");
-  assert.equal(candidates[0].assetUrl, undefined);
 });

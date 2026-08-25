@@ -1,4 +1,4 @@
-import { getAdminBucket, getAdminDb } from "../lib/server/firebaseAdmin.js";
+import { getAdminDb } from "../lib/server/firebaseAdmin.js";
 import { buildOperationalDiagnostics } from "../lib/server/operationalDiagnostics.js";
 import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 import { recordIngestionRun, upsertEvents } from "../lib/server/eventStore.js";
@@ -7,12 +7,16 @@ import { isReusableSourceCandidate, validateSource } from "../lib/server/sourceV
 import { buildPublishedPosterEvent } from "../lib/server/posterPublication.js";
 import { extractPosterDrafts } from "../lib/server/posterDrafts.js";
 import {
-  attachSignedAssetUrls,
   buildMediaLead,
   mediaLeadIdentity,
   parseMediaDataUrl,
-  storageObject,
 } from "../lib/server/mediaLeads.js";
+import {
+  deleteMediaEvidence,
+  loadMediaEvidence,
+  pruneExpiredMediaEvidence,
+  saveMediaEvidence,
+} from "../lib/server/mediaEvidence.js";
 import { buildEventSuppression, REJECTION_REASONS } from "../lib/server/eventSuppressions.js";
 
 function authorized(request) {
@@ -141,6 +145,13 @@ async function rejectCandidate(db, candidateId, input) {
     rejectedAt: reviewedAt,
     reviewedAt,
   }, { merge: true });
+  if (candidate.evidenceDocumentId) {
+    try {
+      await deleteMediaEvidence(db, candidate.evidenceDocumentId);
+    } catch (error) {
+      console.warn(`Could not release rejected media evidence ${candidate.evidenceDocumentId}:`, error.message);
+    }
+  }
   return { candidateId, suppression };
 }
 
@@ -191,19 +202,11 @@ async function posterCandidate(db, candidateId) {
 }
 
 async function createMediaLead(db, input) {
-  const bucket = getAdminBucket();
-  if (!bucket) throw new Error("Poster uploads require FIREBASE_STORAGE_BUCKET.");
   const lead = buildMediaLead(input);
   const { bytes, contentType } = parseMediaDataUrl(input?.imageDataUrl);
   const { id, assetHash } = mediaLeadIdentity(bytes, lead.name);
-  const object = storageObject(contentType, id);
-  await bucket.file(object.path).save(bytes, {
-    resumable: false,
-    contentType,
-    metadata: {
-      cacheControl: "private, max-age=3600",
-    },
-  });
+  await pruneExpiredMediaEvidence(db);
+  await saveMediaEvidence(db, { id, bytes, contentType });
   const extractedText = String(input?.transcription || "").trim().slice(0, 100_000);
   const posterDrafts = extractedText ? extractPosterDrafts(extractedText, {
     candidateId: id,
@@ -215,7 +218,8 @@ async function createMediaLead(db, input) {
     ...lead,
     id,
     url: lead.sourceUrl,
-    assetStoragePath: object.path,
+    evidenceDocumentId: id,
+    evidenceStorage: "firestore-spark",
     assetHash,
     contentType,
     status,
@@ -259,7 +263,20 @@ async function publishPosterDraft(db, candidateId, input) {
     posterDrafts: drafts,
     publishedEventIds: [...new Set([...(candidate.publishedEventIds || []), event.id])],
     reviewedAt,
+    ...(drafts.every((draft) => ["published", "dismissed"].includes(draft.status))
+      ? { status: "reviewed", lifecycle: "reviewed", evidenceDocumentId: null }
+      : {}),
   }, { merge: true });
+  if (
+    candidate.evidenceDocumentId &&
+    drafts.every((draft) => ["published", "dismissed"].includes(draft.status))
+  ) {
+    try {
+      await deleteMediaEvidence(db, candidate.evidenceDocumentId);
+    } catch (error) {
+      console.warn(`Could not release reviewed media evidence ${candidate.evidenceDocumentId}:`, error.message);
+    }
+  }
   return { candidateId, draftId, eventId: event.id, imported };
 }
 
@@ -277,7 +294,19 @@ async function dismissPosterDraft(db, candidateId, input) {
     reviewNote: String(input?.note || "Dismissed by operator").trim().slice(0, 500),
     reviewedAt: new Date().toISOString(),
   };
-  await reference.set({ posterDrafts: drafts, reviewedAt: new Date().toISOString() }, { merge: true });
+  const reviewComplete = drafts.every((draft) => ["published", "dismissed"].includes(draft.status));
+  await reference.set({
+    posterDrafts: drafts,
+    reviewedAt: new Date().toISOString(),
+    ...(reviewComplete ? { status: "reviewed", lifecycle: "reviewed", evidenceDocumentId: null } : {}),
+  }, { merge: true });
+  if (candidate.evidenceDocumentId && reviewComplete) {
+    try {
+      await deleteMediaEvidence(db, candidate.evidenceDocumentId);
+    } catch (error) {
+      console.warn(`Could not release reviewed media evidence ${candidate.evidenceDocumentId}:`, error.message);
+    }
+  }
   return { candidateId, draftId };
 }
 
@@ -300,6 +329,14 @@ export default async function handler(request, response) {
   if (!db) return response.status(503).json({ error: "Firebase Admin is not configured." });
 
   try {
+    if (request.method === "GET" && request.query?.mediaEvidenceId) {
+      const evidence = await loadMediaEvidence(db, request.query.mediaEvidenceId);
+      response.setHeader("Cache-Control", "private, no-store");
+      response.setHeader("Content-Type", evidence.contentType);
+      response.setHeader("Content-Length", String(evidence.bytes.length));
+      return response.status(200).send(evidence.bytes);
+    }
+
     if (request.method === "POST") {
       const action = String(request.body?.action || "");
       const targetId = String(request.body?.candidateId || request.body?.sourceId || request.body?.suppressionId || request.body?.url || request.body?.name || "").trim();
@@ -358,7 +395,6 @@ export default async function handler(request, response) {
         searches: searches.documents,
         genreCaches: genreCaches.documents,
       });
-    diagnostics.candidates = await attachSignedAssetUrls(getAdminBucket(), diagnostics.candidates);
     return response.status(200).json({
       ...diagnostics,
       eventSuppressions: suppressions.documents,

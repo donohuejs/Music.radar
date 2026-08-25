@@ -1,10 +1,14 @@
-import { getAdminBucket, getAdminDb } from "../lib/server/firebaseAdmin.js";
+import { getAdminDb } from "../lib/server/firebaseAdmin.js";
 import {
   buildPublicDiscoveryLead,
   parseMediaDataUrl,
   publicLeadIdentity,
-  storageObject,
 } from "../lib/server/mediaLeads.js";
+import {
+  MediaEvidenceCapacityError,
+  pruneExpiredMediaEvidence,
+  saveMediaEvidence,
+} from "../lib/server/mediaEvidence.js";
 import {
   enforceFeedbackRateLimit,
   FeedbackRateLimitError,
@@ -18,8 +22,12 @@ async function saveCandidate(db, id, candidate) {
   await db.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(reference);
     if (snapshot.exists) {
-      duplicate = true;
       const existing = snapshot.data();
+      if ((existing.status || existing.lifecycle) === "expired") {
+        transaction.set(reference, candidate);
+        return;
+      }
+      duplicate = true;
       transaction.set(reference, {
         lastSubmittedAt: candidate.submittedAt,
         lastDiscoveredAt: candidate.submittedAt,
@@ -57,24 +65,23 @@ export default async function handler(request, response) {
     const { id, assetHash } = publicLeadIdentity({ bytes: media?.bytes, sourceUrl: lead.sourceUrl });
     await enforceFeedbackRateLimit(db, request);
 
-    let assetStoragePath = null;
+    const existing = await db.collection("sourceCandidates").doc(id).get();
+    if (existing.exists && (existing.data().status || existing.data().lifecycle) !== "expired") {
+      await saveCandidate(db, id, { submittedAt: lead.submittedAt });
+      return response.status(202).json({ accepted: true, duplicate: true });
+    }
+
     if (media) {
-      const bucket = getAdminBucket();
-      if (!bucket) return response.status(503).json({ error: "Poster uploads are temporarily unavailable. You can submit the event-page link instead." });
-      const object = storageObject(media.contentType, id, "community-leads");
-      await bucket.file(object.path).save(media.bytes, {
-        resumable: false,
-        contentType: media.contentType,
-        metadata: { cacheControl: "private, max-age=900" },
-      });
-      assetStoragePath = object.path;
+      await pruneExpiredMediaEvidence(db);
+      await saveMediaEvidence(db, { id, bytes: media.bytes, contentType: media.contentType });
     }
 
     const status = media ? "needs-extraction" : "discovered";
     const duplicate = await saveCandidate(db, id, {
       ...lead,
       id,
-      assetStoragePath,
+      evidenceDocumentId: media ? id : null,
+      evidenceStorage: media ? "firestore-spark" : null,
       assetHash,
       contentType: media?.contentType || null,
       status,
@@ -92,6 +99,9 @@ export default async function handler(request, response) {
     if (error instanceof FeedbackRateLimitError) {
       response.setHeader("Retry-After", String(error.retryAfterSeconds));
       return response.status(429).json({ error: error.message });
+    }
+    if (error instanceof MediaEvidenceCapacityError) {
+      return response.status(503).json({ error: error.message });
     }
     if (/required|invalid|public HTTP|poster|image|link/i.test(error.message || "")) {
       return response.status(400).json({ error: error.message });

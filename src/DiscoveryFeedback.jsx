@@ -151,7 +151,7 @@ export default function DiscoveryFeedback({ defaultLocation, onClose }) {
             Website
             <input tabIndex="-1" autoComplete="off" value={input.website} onChange={(event) => update("website", event.target.value)} />
           </label>
-          <p className="feedback-form__privacy">Images are stored privately for discovery review. Please avoid uploading personal information unrelated to the event.</p>
+          <p className="feedback-form__privacy">Images are compressed and stored privately for review for up to 90 days. Please avoid uploading personal information unrelated to the event.</p>
           {message ? <p className={`field-message field-message--${status === "success" ? "success" : "error"}`} role={status === "error" ? "alert" : "status"}>{message}</p> : null}
           <button
             className="button button--primary"

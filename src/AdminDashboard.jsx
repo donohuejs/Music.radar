@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { compressedImageDataUrl } from "./lib/imageUpload.js";
 
 function formatTime(value) {
@@ -142,7 +142,6 @@ function PosterDraftReview({ candidate, busyAction, runAction }) {
       <button className="poster-review__toggle" type="button" onClick={() => setOpen((value) => !value)}>
         {open ? "Hide poster drafts" : `Review ${drafts.length} poster draft${drafts.length === 1 ? "" : "s"}`}
       </button>
-      {open && candidate.assetUrl ? <a href={candidate.assetUrl} target="_blank" rel="noreferrer"><img className="poster-review__image" src={candidate.assetUrl} alt={`Submitted poster for ${candidate.name || "event review"}`} /></a> : null}
       {open ? <div className="poster-review__drafts">{drafts.map((draft) => {
         const edit = values(draft);
         const complete = edit.name && edit.localDate && edit.localTime && edit.timeZone && edit.venueName;
@@ -173,15 +172,60 @@ function PosterDraftReview({ candidate, busyAction, runAction }) {
   );
 }
 
-function SubmissionEvidence({ candidate }) {
+function SubmissionEvidence({ candidate, secret }) {
   const [open, setOpen] = useState(false);
-  if (!candidate.publicSubmission && !candidate.mediaLead) return null;
+  const [assetUrl, setAssetUrl] = useState(candidate.assetUrl || null);
+  const [assetStatus, setAssetStatus] = useState("idle");
+
+  useEffect(() => {
+    if (!open || !candidate.evidenceDocumentId) {
+      setAssetUrl(candidate.assetUrl || null);
+      setAssetStatus("idle");
+      return undefined;
+    }
+    let active = true;
+    let objectUrl = null;
+    setAssetStatus("loading");
+    fetch(`/api/operations?mediaEvidenceId=${encodeURIComponent(candidate.evidenceDocumentId)}`, {
+      headers: { Authorization: `Bearer ${secret.trim()}` },
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || "Could not load poster evidence.");
+        }
+        objectUrl = URL.createObjectURL(await response.blob());
+        if (active) {
+          setAssetUrl(objectUrl);
+          setAssetStatus("success");
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setAssetUrl(null);
+          setAssetStatus(error.message);
+        }
+      });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [candidate.assetUrl, candidate.evidenceDocumentId, open, secret]);
+
+  if (
+    !candidate.publicSubmission &&
+    !candidate.mediaLead &&
+    !candidate.assetUrl &&
+    !candidate.evidenceDocumentId
+  ) return null;
   return <div className="poster-review">
     <button className="poster-review__toggle" type="button" onClick={() => setOpen((value) => !value)}>
       {open ? "Hide submission evidence" : "View submission evidence"}
     </button>
     {open ? <div className="submission-evidence">
-      {candidate.assetUrl && candidate.status !== "poster-review" ? <a href={candidate.assetUrl} target="_blank" rel="noreferrer"><img className="poster-review__image" src={candidate.assetUrl} alt={`Submitted poster for ${candidate.name || "event review"}`} /></a> : null}
+      {assetStatus === "loading" ? <small>Loading private poster evidence…</small> : null}
+      {assetStatus !== "idle" && assetStatus !== "loading" && assetStatus !== "success" ? <small className="ops-error">{assetStatus}</small> : null}
+      {assetUrl ? <a href={assetUrl} target="_blank" rel="noreferrer"><img className="poster-review__image" src={assetUrl} alt={`Submitted poster for ${candidate.name || "event review"}`} /></a> : null}
       {candidate.venueName ? <small><strong>Venue:</strong> {candidate.venueName}</small> : null}
       {candidate.discoveryLocation ? <small><strong>Location:</strong> {candidate.discoveryLocation}</small> : null}
       {candidate.eventDate ? <small><strong>Reported date:</strong> {candidate.eventDate}</small> : null}
@@ -379,7 +423,7 @@ export default function AdminDashboard() {
               <div className="ops-list">{diagnostics.discoveryJobs.slice(0, 30).map((job) => <article key={job.id}><div><strong>{job.displayName || `${Number(job.latitude).toFixed(2)}, ${Number(job.longitude).toFixed(2)}`}</strong><small>{job.candidateCount || 0} candidates · {job.registeredSourceCount || 0} sources</small></div><Status tone={job.status === "failed" ? "bad" : job.status === "complete" ? "good" : "warn"}>{job.leaseExpired ? "lease expired" : job.status}</Status></article>)}</div>
             </section>
             <section className="ops-panel"><div className="ops-panel__heading"><div><p className="results__kicker">REVIEW QUEUE</p><h2>Source candidates</h2></div><span>{diagnostics.candidates.length} waiting</span></div>
-              <div className="ops-list">{filteredCandidates.slice(0, 30).map((candidate) => <article key={candidate.id}><div>{candidate.url ? <a href={candidate.url} target="_blank" rel="noreferrer"><strong>{candidate.name || candidate.url}</strong></a> : <strong>{candidate.name || "Submitted event"}</strong>}<small>{candidate.discoveryLocation || "Unknown area"} · {candidate.parser || candidate.kind}</small>{candidate.publicSubmission ? <small>Community submission · received {candidate.submissionCount || 1} time{Number(candidate.submissionCount || 1) === 1 ? "" : "s"}</small> : null}<SubmissionEvidence candidate={candidate} />{candidate.status === "poster-review" ? <><small>{candidate.posterDraftCount || 0} structured drafts awaiting human validation</small><PosterDraftReview candidate={candidate} busyAction={busyAction} runAction={runAction} /></> : null}{candidate.duplicateSourceId ? <small className="ops-error">Duplicates {candidate.duplicateSourceId}</small> : null}</div><CandidateActions candidate={candidate} busyAction={busyAction} runAction={runAction} /></article>)}</div>
+              <div className="ops-list">{filteredCandidates.slice(0, 30).map((candidate) => <article key={candidate.id}><div>{candidate.url ? <a href={candidate.url} target="_blank" rel="noreferrer"><strong>{candidate.name || candidate.url}</strong></a> : <strong>{candidate.name || "Submitted event"}</strong>}<small>{candidate.discoveryLocation || "Unknown area"} · {candidate.parser || candidate.kind}</small>{candidate.publicSubmission ? <small>Community submission · received {candidate.submissionCount || 1} time{Number(candidate.submissionCount || 1) === 1 ? "" : "s"}</small> : null}<SubmissionEvidence candidate={candidate} secret={secret} />{candidate.status === "poster-review" ? <><small>{candidate.posterDraftCount || 0} structured drafts awaiting human validation</small><PosterDraftReview candidate={candidate} busyAction={busyAction} runAction={runAction} /></> : null}{candidate.duplicateSourceId ? <small className="ops-error">Duplicates {candidate.duplicateSourceId}</small> : null}</div><CandidateActions candidate={candidate} busyAction={busyAction} runAction={runAction} /></article>)}</div>
             </section>
           </div>
 
