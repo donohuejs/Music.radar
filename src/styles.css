@@ -165,6 +165,9 @@ input:focus, select:focus, textarea:focus { border-color: #b1ff47; box-shadow: 0
 .event-card__eyebrow { color: #b1ff47; font-weight: 900; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; }
 .event-card h2 { margin: 8px 0; font-size: 1.45rem; }
 .event-card__venue { margin: 0; color: #c2c8cc; }
+.event-card__venue strong, .event-card__venue span { display: block; }
+.event-card__venue strong { color: #e9edef; }
+.event-card__venue span { margin-top: 3px; color: #9da7ac; font-size: .88rem; line-height: 1.4; }
 .event-card__meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; color: #89949a; font-size: .8rem; }
 .event-card__meta span { padding: 5px 8px; background: #20262a; border-radius: 999px; }
 .event-card__meta .genre-tag { color: #dfffb6; border: 1px solid rgba(177, 255, 71, .25); }

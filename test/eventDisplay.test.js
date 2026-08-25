@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   confidenceExplanation,
+  eventCategoryLabel,
+  eventLocationDisplay,
   filterAndSortEvents,
   filterUpcomingEvents,
   groupTheaterRuns,
@@ -47,7 +49,30 @@ test("uses the selected category in the scan button", () => {
   assert.equal(scanButtonLabel("music"), "Scan for live music");
   assert.equal(scanButtonLabel("theater"), "Scan for theater");
   assert.equal(scanButtonLabel("comedy"), "Scan for comedy");
-  assert.equal(scanButtonLabel("trivia"), "Scan for trivia");
+  assert.equal(scanButtonLabel("trivia"), "Scan for trivia & games");
+  assert.equal(eventCategoryLabel("trivia"), "Trivia & games");
+});
+
+test("surfaces the venue from legacy generic-calendar location data", () => {
+  assert.deepEqual(eventLocationDisplay({
+    venueName: "Events Calendar",
+    sourceName: "Events Calendar",
+    address: "New Groove Artisan Brewery,4078 South Carolina 9, Boiling Springs, SC 29316, USA",
+  }), {
+    primary: "New Groove Artisan Brewery",
+    secondary: "4078 South Carolina 9, Boiling Springs, SC 29316, USA",
+  });
+
+  assert.deepEqual(eventLocationDisplay({
+    venueName: "New Groove Artisan Brewery",
+    address: "4078 South Carolina 9",
+    city: "Boiling Springs",
+    state: "SC",
+    postalCode: "29316",
+  }), {
+    primary: "New Groove Artisan Brewery",
+    secondary: "4078 South Carolina 9 · Boiling Springs, SC 29316",
+  });
 });
 
 test("explains event confidence using available evidence", () => {

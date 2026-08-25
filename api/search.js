@@ -7,7 +7,7 @@ import {
 import { geocodeLocation, timeZoneForCoordinates } from "../lib/server/geocode.js";
 import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 import { fetchTicketmasterEvents } from "../lib/server/ticketmaster.js";
-import { EVENT_CATEGORIES } from "../lib/server/eventCategory.js";
+import { EVENT_CATEGORIES, inferEventCategory } from "../lib/server/eventCategory.js";
 import { searchGeoCells } from "../lib/server/geoCells.js";
 import { queueDiscoveryJobsForArea } from "../lib/server/discoveryStore.js";
 import { recordSearchCoverage } from "../lib/server/searchCoverage.js";
@@ -245,7 +245,12 @@ export default async function handler(request, response) {
       ...firestore.value,
       ...localVenues.value.events,
       ...ticketmaster.value,
-    ]), suppressions.value);
+    ]), suppressions.value).map((event) => ({
+      ...event,
+      // Re-evaluate deterministic category overrides so corrected rules also
+      // apply to cached events before the next ingestion refresh.
+      category: inferEventCategory(event),
+    }));
 
     const filtered = attachDistanceAndFilter(merged, lat, lng, radius)
       .filter((event) => {

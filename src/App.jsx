@@ -9,6 +9,8 @@ import {
 } from "./lib/calendar.js";
 import {
   confidenceExplanation,
+  eventCategoryLabel,
+  eventLocationDisplay,
   filterAndSortEvents,
   filterUpcomingEvents,
   groupTheaterRuns,
@@ -43,7 +45,7 @@ const DATE_OPTIONS = [
 const CATEGORY_OPTIONS = [
   { label: "Live music", value: "music" },
   { label: "Open mic, jams & karaoke", value: "participatory" },
-  { label: "Trivia", value: "trivia" },
+  { label: "Trivia & games", value: "trivia" },
   { label: "Theater", value: "theater" },
   { label: "Comedy", value: "comedy" },
   { label: "All events", value: "all" },
@@ -211,6 +213,7 @@ function CalendarPicker({ mode, start, end, onStartChange, onEndChange, timeZone
 
 function EventCard({ event, preferredMapApp, onChooseDirections, timeZone }) {
   const confidenceId = useId();
+  const location = eventLocationDisplay(event);
   const fallbackDirectionsUrl = buildMapUrl("google", event);
   const preferredDirectionsUrl = preferredMapApp
     ? buildMapUrl(preferredMapApp, event)
@@ -238,13 +241,13 @@ function EventCard({ event, preferredMapApp, onChooseDirections, timeZone }) {
         </div>
         <h2>{event.name}</h2>
         <p className="event-card__venue">
-          {event.venueName || "Venue TBD"}
-          {event.city ? ` · ${event.city}${event.state ? `, ${event.state}` : ""}` : ""}
+          <strong>{location.primary}</strong>
+          {location.secondary ? <span>{location.secondary}</span> : null}
         </p>
 
         <div className="event-card__meta">
           <span>{event.sourceName || "Event source"}</span>
-          {event.category ? <span>{event.category.replace("_", " ")}</span> : null}
+          {event.category ? <span>{eventCategoryLabel(event.category)}</span> : null}
           {event.confidence ? (
             <span className="confidence">
               <button type="button" aria-describedby={confidenceId}>

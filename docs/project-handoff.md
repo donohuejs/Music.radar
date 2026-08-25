@@ -77,7 +77,7 @@ Important normalized fields include:
 - `name`, `artistName`, `venueName`, and address fields
 - latitude, longitude, and `geoCell`
 - ISO `startTime` and optional `endTime`
-- `category`: `music`, `participatory`, `trivia`, `theater`, `comedy`,
+- `category`: `music`, `participatory`, `trivia` (including music bingo), `theater`, `comedy`,
   `community`, or `other`
 - `genres`, using `Genre not listed` instead of invented metadata
 - source attribution, confidence, and verification timestamps

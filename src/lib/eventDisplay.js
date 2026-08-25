@@ -1,14 +1,55 @@
 const CATEGORY_SCAN_LABELS = {
   music: "Scan for live music",
   participatory: "Scan for open mics, jams & karaoke",
-  trivia: "Scan for trivia",
+  trivia: "Scan for trivia & games",
   theater: "Scan for theater",
   comedy: "Scan for comedy",
   all: "Scan for all events",
 };
 
+const CATEGORY_LABELS = {
+  music: "Live music",
+  participatory: "Open mic, jams & karaoke",
+  trivia: "Trivia & games",
+  theater: "Theater",
+  comedy: "Comedy",
+  community: "Community",
+  other: "Other",
+};
+
 export function scanButtonLabel(category) {
   return CATEGORY_SCAN_LABELS[category] || "Scan for events";
+}
+
+export function eventCategoryLabel(category) {
+  return CATEGORY_LABELS[category] || String(category || "").replaceAll("_", " ");
+}
+
+function looksLikeStreetAddress(value) {
+  return /^(?:\d+\b|p\.?\s*o\.?\s+box\b)/i.test(String(value || "").trim());
+}
+
+export function eventLocationDisplay(event = {}) {
+  let primary = event.venueName || "Venue TBD";
+  let address = String(event.address || "").trim();
+
+  // Older generic-calendar records put a structured LOCATION value in the
+  // address while using the calendar title as the venue. Surface the actual
+  // venue immediately; refreshed ingestion stores these fields separately.
+  if (address && event.venueName && event.venueName === event.sourceName) {
+    const parts = address.split(",").map((part) => part.trim()).filter(Boolean);
+    if (parts.length > 1 && !looksLikeStreetAddress(parts[0])) {
+      primary = parts.shift();
+      address = parts.join(", ");
+    }
+  }
+
+  const region = [event.state, event.postalCode].filter(Boolean).join(" ");
+  const locality = [event.city, region].filter(Boolean).join(", ");
+  const addressIncludesLocality = locality && address.toLowerCase().includes(locality.toLowerCase());
+  const secondary = [address, addressIncludesLocality ? null : locality].filter(Boolean).join(" · ");
+
+  return { primary, secondary };
 }
 
 export function filterUpcomingEvents(events = [], currentTime = Date.now()) {

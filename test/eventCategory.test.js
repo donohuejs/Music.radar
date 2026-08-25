@@ -27,6 +27,10 @@ test("separates trivia from a source's broad music category", () => {
     inferEventCategory({ name: "Wednesday Pub Quiz", category: "music" }),
     "trivia",
   );
+  assert.equal(
+    inferEventCategory({ name: "NEW GROOVE: Music Bingo with Jen", category: "music" }),
+    "trivia",
+  );
 });
 
 test("lets specific theater and comedy evidence override a broad source category", () => {

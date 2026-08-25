@@ -159,7 +159,7 @@ function PosterDraftReview({ candidate, busyAction, runAction }) {
               <label>City<input value={edit.city} onChange={(event) => update(draft.id, "city", event.target.value)} /></label>
               <label>State/region<input value={edit.state} onChange={(event) => update(draft.id, "state", event.target.value)} /></label>
               <label>Postal code<input value={edit.postalCode} onChange={(event) => update(draft.id, "postalCode", event.target.value)} /></label>
-              <label>Category<select value={edit.category} onChange={(event) => update(draft.id, "category", event.target.value)}><option value="music">Live music</option><option value="theater">Theater</option><option value="comedy">Comedy</option><option value="participatory">Participatory</option><option value="trivia">Trivia</option><option value="community">Community</option></select></label>
+              <label>Category<select value={edit.category} onChange={(event) => update(draft.id, "category", event.target.value)}><option value="music">Live music</option><option value="theater">Theater</option><option value="comedy">Comedy</option><option value="participatory">Participatory</option><option value="trivia">Trivia &amp; games</option><option value="community">Community</option></select></label>
             </div>
             <div className="ops-actions">
               <button disabled={Boolean(busyAction || !complete)} onClick={() => runAction("poster.publish", { candidateId: candidate.id, draftId: draft.id, ...edit }, `Publish ${edit.name || "this poster draft"} to Music Radar?`)}>Publish event</button>

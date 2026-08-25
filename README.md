@@ -16,7 +16,7 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
   custom-range searches.
 - Automatic removal of events after their start time, plus result-level
   walkable, short-trip, across-town, and custom-distance filters.
-- Separate categories for live music, participatory music, trivia, theater, and
+- Separate categories for live music, participatory music, trivia and games, theater, and
   comedy.
 - Conservative removal of explicit venue-hours and no-performance placeholders
   so the live-music inventory remains focused on artist performances.
