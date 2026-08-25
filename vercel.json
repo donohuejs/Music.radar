@@ -15,6 +15,9 @@
     "api/operations.js": {
       "maxDuration": 60
     },
+    "api/feedback.js": {
+      "maxDuration": 30
+    },
     "api/discover.js": {
       "maxDuration": 60
     },

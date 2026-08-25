@@ -59,6 +59,16 @@ test("keeps full poster OCR out of dashboard diagnostics", () => {
   assert.equal(diagnostics.candidates[0].extractedTextPreview.length, 500);
 });
 
+test("puts fresh community submissions at the front of the review queue", () => {
+  const diagnostics = buildOperationalDiagnostics({
+    candidates: [
+      { id: "high-score", status: "discovered", score: 0.99, lastDiscoveredAt: "2026-08-24T10:00:00Z" },
+      { id: "community", status: "discovered", score: 0.2, publicSubmission: true, lastSubmittedAt: "2026-08-24T11:00:00Z" },
+    ],
+  });
+  assert.equal(diagnostics.candidates[0].id, "community");
+});
+
 test("summarizes fresh provider evidence and Discogs incremental lift", () => {
   const now = Date.parse("2026-08-05T12:00:00.000Z");
   const fresh = "2026-08-05T10:00:00.000Z";

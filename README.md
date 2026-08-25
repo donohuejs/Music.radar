@@ -29,8 +29,14 @@ Production: [music-radar-one.vercel.app](https://music-radar-one.vercel.app)
 - ICS, RSS, JSON-LD, linked-event listing, embedded Tockify, custom venue, and
   recurring-series collectors.
 - PDF/image poster detection and OCR staging.
-- Conservative poster OCR draft extraction requiring explicit years, with all
-  drafts held for human review before publication.
+- Field-poster and social-screenshot intake from the protected dashboard, with
+  optional pasted OCR for immediate processing and scheduled OCR otherwise.
+- Public missing-event feedback from the footer and sparse-result states,
+  accepting a poster/screenshot, an artist or venue events-page link, or both.
+  Submissions are deduplicated, rate-limited, and held for human review.
+- Conservative poster draft extraction requiring explicit years or a supplied
+  capture date corroborated by a stated recurring weekday, with every inferred
+  date held for human review before publication.
 - Protected poster review with editable event details, required IANA time-zone
   validation, audited publication, stable event IDs, and draft dismissal.
 - Cached, conservative, provider-neutral artist genre enrichment, currently
@@ -62,6 +68,8 @@ Vercel server variables:
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_CLIENT_EMAIL`
 - `FIREBASE_PRIVATE_KEY`
+- `FIREBASE_STORAGE_BUCKET` (stores media-lead evidence for OCR and review)
+- `FEEDBACK_RATE_LIMIT_SALT` (optional dedicated salt for hashed public-feedback rate limits)
 - `TICKETMASTER_API_KEY`
 - `INGEST_SECRET`
 - `CRON_SECRET`
@@ -165,6 +173,23 @@ duplicate registered URLs are blocked. Rejections store a structured reason and
 survive rediscovery. Single-event JSON-LD pages cannot be approved as reusable
 sources. Active URL suppressions are applied during both ingestion and search;
 they can be reversed from the dashboard.
+
+Operators can also submit photographed posters or social screenshots. The
+browser compresses the image before the protected API stores it in Firebase
+Storage as a private object. Short-lived signed links are created only for the
+protected dashboard and OCR worker. Venue coordinates, capture date,
+time zone, optional recurring weekday, source URL, and optional device OCR text
+are retained with the review candidate. Pasted text creates drafts immediately;
+otherwise the scheduled discovery workflow runs Tesseract. Dates with an
+inferred year are never auto-published and remain editable in poster review.
+
+Visitors can use the “Missing an event?” link in the footer or a low-coverage
+result state to submit a poster/screenshot or public events-page URL. The public
+endpoint rejects private-network URLs, limits each hashed client address to five
+submissions per rolling day, uses a bot honeypot, and deduplicates identical
+images or URLs. Raw client addresses are never stored. These community leads
+enter the same protected candidate/OCR queue and can never publish without an
+operator review action.
 
 Successful indexed searches also write a coarse coverage diagnostic with a
 30-day retention marker to

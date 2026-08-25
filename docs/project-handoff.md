@@ -1,6 +1,6 @@
 # Music Radar project handoff
 
-Updated: 2026-08-04
+Updated: 2026-08-24
 
 ## Mission
 
@@ -27,6 +27,21 @@ Scheduled workers
   -> poster extraction -> stored OCR text -> review-only structured drafts
   -> provider-neutral enrichment -> MusicBrainz evidence -> cached artist genres -> updated events
 ```
+
+The protected operations dashboard also accepts field photographs and social
+screenshots as media leads. Images are compressed in the browser, stored in
+Firebase Storage, and sent through the existing scheduled OCR worker. Optional
+pasted device OCR produces drafts immediately. Capture dates and stated weekly
+recurrence can establish a candidate year when most poster dates agree with the
+weekday, but all inferred dates require operator review before publication.
+
+The public app exposes the same review-only intake from its footer and sparse or
+empty result states. A visitor can submit a poster/screenshot, an artist or venue
+events-page URL, or both without providing coordinates or a time zone. Images
+remain private and are exposed to authenticated reviewers and the OCR worker
+through short-lived signed URLs. URL/image identities deduplicate repeats;
+hashed-address rolling limits and a honeypot bound anonymous abuse. Public tips
+never bypass the candidate queue or publish automatically.
 
 The React/Vite client is deployed by Vercel from GitHub `main`. Vercel API
 functions implement search and protected operational endpoints. Firebase Admin
@@ -150,7 +165,8 @@ poster/PDF assets.
 ## Known limitations
 
 1. Poster discovery now creates conservative review-only drafts when OCR
-   contains explicit full dates. Arbitrary layouts, missing years, uncertain
+   contains explicit full dates, or when a field submission supplies a capture
+   date and a recurring weekday that corroborates most listed dates. Arbitrary layouts, uncertain
    titles, times, and time zones require human validation in `/admin` before
    events can be published. Published drafts receive stable event IDs and an
    audit record; structured recurring-series data remains the verified fallback.
@@ -174,8 +190,8 @@ poster/PDF assets.
    to the admin dashboard.
 2. Add scheduled aggregation and deletion for expired search coverage records,
    plus richer map visualization for weak geographic cells.
-3. Generalize poster normalization using OCR coordinates, recurring weekday
-   validation, and human approval before publication.
+3. Generalize poster normalization using OCR coordinates and connect opted-in
+   professional social accounts to the now-shared public/operator media intake.
 4. Test several contrasting markets: a dense major city, a midsize city, a
    rural/tourism area, and an international destination.
 5. Add monitoring for ingestion failures, stale sources, enrichment backlog,

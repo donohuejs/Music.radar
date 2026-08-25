@@ -25,6 +25,7 @@ import {
   normalizeMapApp,
 } from "./lib/mapLinks.js";
 import DirectionsChooser from "./DirectionsChooser.jsx";
+import DiscoveryFeedback from "./DiscoveryFeedback.jsx";
 import LocationAutocomplete from "./LocationAutocomplete.jsx";
 import ResultFilters from "./ResultFilters.jsx";
 
@@ -328,6 +329,7 @@ export default function App() {
   const [proximity, setProximity] = useState(loadProximityPreference);
   const [preferredMapApp, setPreferredMapApp] = useState(loadMapPreference);
   const [directionsEvent, setDirectionsEvent] = useState(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [visibleCount, setVisibleCount] = useState(RESULTS_PAGE_SIZE);
   const [events, setEvents] = useState([]);
@@ -792,6 +794,7 @@ export default function App() {
               : events.length
                 ? "Events are removed automatically after their start time."
                 : "Try a larger radius or broader date range. This result may also indicate a coverage gap."}</p>
+            <button className="feedback-link" type="button" onClick={() => setFeedbackOpen(true)}>Tell us about a missing event</button>
           </div>
         ) : null}
 
@@ -811,8 +814,17 @@ export default function App() {
             Show more ({filteredEvents.length - visibleEvents.length} remaining)
           </button>
         ) : null}
+        {status === "success" && displayedEvents.length > 0 && displayedEvents.length <= 3 ? (
+          <aside className="coverage-feedback">
+            <div><strong>Know about another event nearby?</strong><span>Your tip can help us expand coverage for this area.</span></div>
+            <button className="feedback-link" type="button" onClick={() => setFeedbackOpen(true)}>Provide feedback</button>
+          </aside>
+        ) : null}
       </section>
       <footer className="site-footer">
+        <button className="site-footer__feedback" type="button" onClick={() => setFeedbackOpen(true)}>
+          Missing an event? Provide feedback to help our discovery pipeline!
+        </button>
         <p>
           This application uses Discogs’ API but is not affiliated with,
           sponsored or endorsed by Discogs. ‘Discogs’ is a trademark of Zink
@@ -826,6 +838,12 @@ export default function App() {
           preferredApp={preferredMapApp}
           onChoose={chooseMapApp}
           onClose={() => setDirectionsEvent(null)}
+        />
+      ) : null}
+      {feedbackOpen ? (
+        <DiscoveryFeedback
+          defaultLocation={searchMeta?.resolvedLocation?.displayName || searchMeta?.resolvedLocation?.label || locationText}
+          onClose={() => setFeedbackOpen(false)}
         />
       ) : null}
     </main>

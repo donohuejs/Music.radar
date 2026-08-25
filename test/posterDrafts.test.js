@@ -18,6 +18,33 @@ Town Square`, { candidateId: "poster-one" });
 
 test("does not turn dates without an explicit year into event drafts", () => {
   assert.deepEqual(extractPosterDrafts("The Example Band\nJune 12 at 6:30 PM"), []);
+  assert.deepEqual(extractPosterDrafts("The Example Band\nJune 12 at 6:30 PM", {
+    referenceDate: "2026-05-01T00:00:00Z",
+  }), []);
+});
+
+test("infers one reviewable series year from capture date and stated weekday", () => {
+  const drafts = extractPosterDrafts(`EVERY FRIDAY
+August 7 Flipside 6:30 PM
+August 14 Swamp Rabbit Bluegrass 6:30 PM
+September 4 Randomonium 6:30 PM`, {
+    candidateId: "field-poster",
+    referenceDate: "2026-08-19T12:00:00Z",
+    statedWeekday: "friday",
+  });
+  assert.equal(drafts.length, 3);
+  assert.equal(drafts[0].localDate, "2026-08-07");
+  assert.equal(drafts[0].name, "Flipside");
+  assert.equal(drafts[2].localDate, "2026-09-04");
+  assert.equal(drafts[0].dateYearInferred, true);
+  assert.equal(drafts[0].publishable, false);
+});
+
+test("does not infer a year when weekday evidence is inconsistent", () => {
+  assert.deepEqual(extractPosterDrafts("June 12 Example Band 6:30 PM", {
+    referenceDate: "2026-05-01T00:00:00Z",
+    statedWeekday: "monday",
+  }), []);
 });
 
 test("keeps incomplete explicit dates visible for review", () => {

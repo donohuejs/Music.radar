@@ -40,9 +40,19 @@ stored for the area.
 7. Successful scheduled ingestion runs increase source confidence. Three
    successful runs can promote a source to trusted; three consecutive failures
    degrade it for review.
-8. PDF or image schedules are retained with `status: needs-extraction` and an
-   asset URL. The GitHub Actions worker runs Poppler or Tesseract only when the
+8. PDF or image schedules are retained with `status: needs-extraction` and a
+   private storage path. The protected API issues a short-lived signed asset URL
+   to the GitHub Actions worker, which runs Poppler or Tesseract only when the
    asset hash changes, then saves the extracted text on the candidate.
+9. Operators can submit a field photograph or social screenshot through the
+   protected dashboard. It uses the same candidate, OCR, review, and publication
+   path, so future authorized social connectors can create media leads without
+   a second normalization system. Missing years may be inferred only from
+   capture time plus majority recurring-weekday agreement and remain review-only.
+10. Public missing-event feedback accepts an image, public HTTP(S) event-page
+   URL, or both. Identical evidence is deduplicated, client addresses are hashed
+   solely for a rolling rate limit, and every lead remains in the protected
+   candidate queue until reviewed.
 
 The system stores operational state in:
 
@@ -73,6 +83,10 @@ an existing reusable parser, after which the workflow runs source ingestion.
 - Discovery is bounded by radius, cell count, organization count, pages per organization,
   response size, and worker batch size.
 - Localhost and private-address URLs are rejected.
+- Anonymous feedback is limited to five submissions per hashed client address
+  per rolling day and includes a honeypot; raw client addresses are not stored.
+- Uploaded evidence is private. Only short-lived signed links are returned by
+  protected worker and operations endpoints.
 - A failed organization does not stop the rest of a location job.
 - Poster detection requires an actual PDF or image asset; an ordinary page named
   `shows`, `lineup`, or `schedule` is not sent to OCR.

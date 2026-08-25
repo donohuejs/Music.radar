@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { compressedImageDataUrl } from "./lib/imageUpload.js";
 
 function formatTime(value) {
   if (!value) return "Never";
@@ -8,6 +9,63 @@ function formatTime(value) {
 
 function Status({ tone = "neutral", children }) {
   return <span className={`ops-status ops-status--${tone}`}>{children}</span>;
+}
+
+function MediaLeadIntake({ busyAction, runAction }) {
+  const [file, setFile] = useState(null);
+  const [intakeError, setIntakeError] = useState("");
+  const [input, setInput] = useState({
+    name: "", sourceUrl: "", capturedAt: new Date().toISOString().slice(0, 10),
+    statedWeekday: "", latitude: "", longitude: "", timeZone: "",
+    venueName: "", address: "", city: "", state: "", postalCode: "", transcription: "",
+  });
+
+  function update(field, value) {
+    setInput((current) => ({ ...current, [field]: value }));
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!file) return;
+    const form = event.currentTarget;
+    setIntakeError("");
+    try {
+      const imageDataUrl = await compressedImageDataUrl(file);
+      const succeeded = await runAction("media-lead.create", { ...input, imageDataUrl });
+      if (succeeded) {
+        setFile(null);
+        setInput((current) => ({ ...current, name: "", sourceUrl: "", venueName: "", address: "", transcription: "" }));
+        form.reset();
+      }
+    } catch (error) {
+      setIntakeError(error.message);
+    }
+  }
+
+  return <section className="ops-panel">
+    <div className="ops-panel__heading"><div><p className="results__kicker">FIELD DISCOVERY</p><h2>Submit a poster</h2></div><span>Human-reviewed before publication</span></div>
+    <form className="media-lead-form" onSubmit={submit}>
+      <p className="media-lead-form__help">Upload a photographed flyer or social screenshot. Paste device OCR text when available for immediate drafts; otherwise the scheduled poster worker will extract it.</p>
+      <div className="poster-draft__fields">
+        <label>Poster image<input required type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label>
+        <label>Series or venue name<input required value={input.name} onChange={(event) => update("name", event.target.value)} placeholder="Holland Park Live Music Series" /></label>
+        <label>Source website<input type="url" value={input.sourceUrl} onChange={(event) => update("sourceUrl", event.target.value)} placeholder="https://venue.example" /></label>
+        <label>Photo captured<input required type="date" value={input.capturedAt} onChange={(event) => update("capturedAt", event.target.value)} /></label>
+        <label>Stated recurrence<select value={input.statedWeekday} onChange={(event) => update("statedWeekday", event.target.value)}><option value="">Not stated</option>{["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"].map((day) => <option value={day} key={day}>Every {day}</option>)}</select></label>
+        <label>Time zone<input required value={input.timeZone} onChange={(event) => update("timeZone", event.target.value)} placeholder="America/New_York" /></label>
+        <label>Latitude<input required type="number" step="any" value={input.latitude} onChange={(event) => update("latitude", event.target.value)} /></label>
+        <label>Longitude<input required type="number" step="any" value={input.longitude} onChange={(event) => update("longitude", event.target.value)} /></label>
+        <label>Venue name<input value={input.venueName} onChange={(event) => update("venueName", event.target.value)} /></label>
+        <label>Street address<input value={input.address} onChange={(event) => update("address", event.target.value)} /></label>
+        <label>City<input value={input.city} onChange={(event) => update("city", event.target.value)} /></label>
+        <label>State/region<input value={input.state} onChange={(event) => update("state", event.target.value)} /></label>
+        <label>Postal code<input value={input.postalCode} onChange={(event) => update("postalCode", event.target.value)} /></label>
+      </div>
+      <label className="media-lead-form__transcription">Poster text (optional)<textarea rows="8" value={input.transcription} onChange={(event) => update("transcription", event.target.value)} placeholder="Paste Live Text, Lens, or other OCR output here…" /></label>
+      {intakeError ? <span className="field-message field-message--error" role="alert">{intakeError}</span> : null}
+      <button className="button button--primary" disabled={Boolean(busyAction || !file)}>Create review lead</button>
+    </form>
+  </section>;
 }
 
 function GenreImpact({ impact, filter }) {
@@ -62,7 +120,11 @@ function PosterDraftReview({ candidate, busyAction, runAction }) {
       localDate: draft.localDate || "",
       localTime: draft.localTime || "",
       timeZone: candidate.timeZone || "",
-      venueName: candidate.name || "",
+      venueName: candidate.venueName || candidate.name || "",
+      address: candidate.address || "",
+      city: candidate.city || "",
+      state: candidate.state || "",
+      postalCode: candidate.postalCode || "",
       category: "music",
       ...(edits[draft.id] || {}),
     };
@@ -80,6 +142,7 @@ function PosterDraftReview({ candidate, busyAction, runAction }) {
       <button className="poster-review__toggle" type="button" onClick={() => setOpen((value) => !value)}>
         {open ? "Hide poster drafts" : `Review ${drafts.length} poster draft${drafts.length === 1 ? "" : "s"}`}
       </button>
+      {open && candidate.assetUrl ? <a href={candidate.assetUrl} target="_blank" rel="noreferrer"><img className="poster-review__image" src={candidate.assetUrl} alt={`Submitted poster for ${candidate.name || "event review"}`} /></a> : null}
       {open ? <div className="poster-review__drafts">{drafts.map((draft) => {
         const edit = values(draft);
         const complete = edit.name && edit.localDate && edit.localTime && edit.timeZone && edit.venueName;
@@ -93,6 +156,10 @@ function PosterDraftReview({ candidate, busyAction, runAction }) {
               <label>Local time<input type="time" value={edit.localTime} onChange={(event) => update(draft.id, "localTime", event.target.value)} /></label>
               <label>Time zone<input value={edit.timeZone} onChange={(event) => update(draft.id, "timeZone", event.target.value)} placeholder="America/Chicago" /></label>
               <label>Venue<input value={edit.venueName} onChange={(event) => update(draft.id, "venueName", event.target.value)} /></label>
+              <label>Street address<input value={edit.address} onChange={(event) => update(draft.id, "address", event.target.value)} /></label>
+              <label>City<input value={edit.city} onChange={(event) => update(draft.id, "city", event.target.value)} /></label>
+              <label>State/region<input value={edit.state} onChange={(event) => update(draft.id, "state", event.target.value)} /></label>
+              <label>Postal code<input value={edit.postalCode} onChange={(event) => update(draft.id, "postalCode", event.target.value)} /></label>
               <label>Category<select value={edit.category} onChange={(event) => update(draft.id, "category", event.target.value)}><option value="music">Live music</option><option value="theater">Theater</option><option value="comedy">Comedy</option><option value="participatory">Participatory</option><option value="trivia">Trivia</option><option value="community">Community</option></select></label>
             </div>
             <div className="ops-actions">
@@ -104,6 +171,24 @@ function PosterDraftReview({ candidate, busyAction, runAction }) {
       })}</div> : null}
     </div>
   );
+}
+
+function SubmissionEvidence({ candidate }) {
+  const [open, setOpen] = useState(false);
+  if (!candidate.publicSubmission && !candidate.mediaLead) return null;
+  return <div className="poster-review">
+    <button className="poster-review__toggle" type="button" onClick={() => setOpen((value) => !value)}>
+      {open ? "Hide submission evidence" : "View submission evidence"}
+    </button>
+    {open ? <div className="submission-evidence">
+      {candidate.assetUrl && candidate.status !== "poster-review" ? <a href={candidate.assetUrl} target="_blank" rel="noreferrer"><img className="poster-review__image" src={candidate.assetUrl} alt={`Submitted poster for ${candidate.name || "event review"}`} /></a> : null}
+      {candidate.venueName ? <small><strong>Venue:</strong> {candidate.venueName}</small> : null}
+      {candidate.discoveryLocation ? <small><strong>Location:</strong> {candidate.discoveryLocation}</small> : null}
+      {candidate.eventDate ? <small><strong>Reported date:</strong> {candidate.eventDate}</small> : null}
+      {candidate.notes ? <small><strong>Notes:</strong> {candidate.notes}</small> : null}
+      {candidate.sourceUrl ? <small><a href={candidate.sourceUrl} target="_blank" rel="noreferrer">Open submitted events page</a></small> : null}
+    </div> : null}
+  </div>;
 }
 
 function CandidateActions({ candidate, busyAction, runAction }) {
@@ -178,9 +263,11 @@ export default function AdminDashboard() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Operation failed.");
       await loadDiagnostics();
+      return true;
     } catch (error) {
       setMessage(error.message);
       setStatus("error");
+      return false;
     } finally {
       setBusyAction("");
     }
@@ -199,7 +286,7 @@ export default function AdminDashboard() {
     return (diagnostics?.candidates || []).filter((candidate) => {
       const matchesStatus = candidateStatus === "all" ||
         (candidate.status || candidate.lifecycle) === candidateStatus;
-      const matchesQuery = !query || [candidate.name, candidate.url, candidate.parser, candidate.discoveryLocation]
+      const matchesQuery = !query || [candidate.name, candidate.venueName, candidate.url, candidate.parser, candidate.discoveryLocation, candidate.notes]
         .some((value) => String(value || "").toLowerCase().includes(query));
       return matchesStatus && matchesQuery;
     });
@@ -256,6 +343,8 @@ export default function AdminDashboard() {
 
           <GenreImpact impact={diagnostics.genreImpact} filter={filter} />
 
+          <MediaLeadIntake busyAction={busyAction} runAction={runAction} />
+
           <section className="ops-panel">
             <div className="ops-panel__heading"><div><p className="results__kicker">EVENT MODERATION</p><h2>Hidden events</h2></div><span>{(diagnostics.eventSuppressions || []).filter((item) => item.active !== false).length} active</span></div>
             <div className="ops-filters">
@@ -290,7 +379,7 @@ export default function AdminDashboard() {
               <div className="ops-list">{diagnostics.discoveryJobs.slice(0, 30).map((job) => <article key={job.id}><div><strong>{job.displayName || `${Number(job.latitude).toFixed(2)}, ${Number(job.longitude).toFixed(2)}`}</strong><small>{job.candidateCount || 0} candidates · {job.registeredSourceCount || 0} sources</small></div><Status tone={job.status === "failed" ? "bad" : job.status === "complete" ? "good" : "warn"}>{job.leaseExpired ? "lease expired" : job.status}</Status></article>)}</div>
             </section>
             <section className="ops-panel"><div className="ops-panel__heading"><div><p className="results__kicker">REVIEW QUEUE</p><h2>Source candidates</h2></div><span>{diagnostics.candidates.length} waiting</span></div>
-              <div className="ops-list">{filteredCandidates.slice(0, 30).map((candidate) => <article key={candidate.id}><div><a href={candidate.url} target="_blank" rel="noreferrer"><strong>{candidate.name || candidate.url}</strong></a><small>{candidate.discoveryLocation || "Unknown area"} · {candidate.parser || candidate.kind}</small>{candidate.status === "poster-review" ? <><small>{candidate.posterDraftCount || 0} structured drafts awaiting human validation</small><PosterDraftReview candidate={candidate} busyAction={busyAction} runAction={runAction} /></> : null}{candidate.duplicateSourceId ? <small className="ops-error">Duplicates {candidate.duplicateSourceId}</small> : null}</div><CandidateActions candidate={candidate} busyAction={busyAction} runAction={runAction} /></article>)}</div>
+              <div className="ops-list">{filteredCandidates.slice(0, 30).map((candidate) => <article key={candidate.id}><div>{candidate.url ? <a href={candidate.url} target="_blank" rel="noreferrer"><strong>{candidate.name || candidate.url}</strong></a> : <strong>{candidate.name || "Submitted event"}</strong>}<small>{candidate.discoveryLocation || "Unknown area"} · {candidate.parser || candidate.kind}</small>{candidate.publicSubmission ? <small>Community submission · received {candidate.submissionCount || 1} time{Number(candidate.submissionCount || 1) === 1 ? "" : "s"}</small> : null}<SubmissionEvidence candidate={candidate} />{candidate.status === "poster-review" ? <><small>{candidate.posterDraftCount || 0} structured drafts awaiting human validation</small><PosterDraftReview candidate={candidate} busyAction={busyAction} runAction={runAction} /></> : null}{candidate.duplicateSourceId ? <small className="ops-error">Duplicates {candidate.duplicateSourceId}</small> : null}</div><CandidateActions candidate={candidate} busyAction={busyAction} runAction={runAction} /></article>)}</div>
             </section>
           </div>
 

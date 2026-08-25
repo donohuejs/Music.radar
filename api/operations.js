@@ -1,10 +1,18 @@
-import { getAdminDb } from "../lib/server/firebaseAdmin.js";
+import { getAdminBucket, getAdminDb } from "../lib/server/firebaseAdmin.js";
 import { buildOperationalDiagnostics } from "../lib/server/operationalDiagnostics.js";
 import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 import { recordIngestionRun, upsertEvents } from "../lib/server/eventStore.js";
 import { sourceDocument, updateSourceIngestionHealth } from "../lib/server/sourceRegistry.js";
 import { isReusableSourceCandidate, validateSource } from "../lib/server/sourceValidation.js";
 import { buildPublishedPosterEvent } from "../lib/server/posterPublication.js";
+import { extractPosterDrafts } from "../lib/server/posterDrafts.js";
+import {
+  attachSignedAssetUrls,
+  buildMediaLead,
+  mediaLeadIdentity,
+  parseMediaDataUrl,
+  storageObject,
+} from "../lib/server/mediaLeads.js";
 import { buildEventSuppression, REJECTION_REASONS } from "../lib/server/eventSuppressions.js";
 
 function authorized(request) {
@@ -182,6 +190,48 @@ async function posterCandidate(db, candidateId) {
   return { reference, candidate };
 }
 
+async function createMediaLead(db, input) {
+  const bucket = getAdminBucket();
+  if (!bucket) throw new Error("Poster uploads require FIREBASE_STORAGE_BUCKET.");
+  const lead = buildMediaLead(input);
+  const { bytes, contentType } = parseMediaDataUrl(input?.imageDataUrl);
+  const { id, assetHash } = mediaLeadIdentity(bytes, lead.name);
+  const object = storageObject(contentType, id);
+  await bucket.file(object.path).save(bytes, {
+    resumable: false,
+    contentType,
+    metadata: {
+      cacheControl: "private, max-age=3600",
+    },
+  });
+  const extractedText = String(input?.transcription || "").trim().slice(0, 100_000);
+  const posterDrafts = extractedText ? extractPosterDrafts(extractedText, {
+    candidateId: id,
+    referenceDate: lead.capturedAt,
+    statedWeekday: lead.statedWeekday,
+  }) : [];
+  const status = posterDrafts.length ? "poster-review" : "needs-extraction";
+  const candidate = {
+    ...lead,
+    id,
+    url: lead.sourceUrl,
+    assetStoragePath: object.path,
+    assetHash,
+    contentType,
+    status,
+    lifecycle: status,
+    extractionStatus: posterDrafts.length ? "extracted" : "pending",
+    extractedText: extractedText || null,
+    posterDrafts,
+    posterDraftCount: posterDrafts.length,
+    score: 0.99,
+    firstDiscoveredAt: lead.submittedAt,
+    lastDiscoveredAt: lead.submittedAt,
+  };
+  await db.collection("sourceCandidates").doc(id).set(candidate, { merge: true });
+  return { candidateId: id, status, posterDraftCount: posterDrafts.length };
+}
+
 async function publishPosterDraft(db, candidateId, input) {
   const { reference, candidate } = await posterCandidate(db, candidateId);
   const draftId = String(input?.draftId || "").trim();
@@ -232,6 +282,7 @@ async function dismissPosterDraft(db, candidateId, input) {
 }
 
 function actionTargetType(action) {
+  if (action.startsWith("media-lead")) return "media-lead";
   if (action.startsWith("event")) return "event-suppression";
   if (action.startsWith("candidate")) return "candidate";
   if (action.startsWith("poster")) return "poster-draft";
@@ -251,11 +302,12 @@ export default async function handler(request, response) {
   try {
     if (request.method === "POST") {
       const action = String(request.body?.action || "");
-      const targetId = String(request.body?.candidateId || request.body?.sourceId || request.body?.suppressionId || request.body?.url || "").trim();
+      const targetId = String(request.body?.candidateId || request.body?.sourceId || request.body?.suppressionId || request.body?.url || request.body?.name || "").trim();
       if (!targetId) return response.status(400).json({ error: "An action target is required." });
       let result;
       try {
-        if (action === "candidate.approve") result = await approveCandidate(db, targetId);
+        if (action === "media-lead.create") result = await createMediaLead(db, request.body);
+        else if (action === "candidate.approve") result = await approveCandidate(db, targetId);
         else if (action === "candidate.reject") result = await rejectCandidate(db, targetId, request.body);
         else if (action === "event.suppress") result = await suppressEvent(db, request.body);
         else if (action === "event.unsuppress") result = await unsuppressEvent(db, targetId);
@@ -297,8 +349,7 @@ export default async function handler(request, response) {
       return response.status(503).json({ error: collectionFailure });
     }
     const [sources, jobs, candidates, runs, audits, searches, genreCaches, suppressions] = collections;
-    return response.status(200).json({
-      ...buildOperationalDiagnostics({
+    const diagnostics = buildOperationalDiagnostics({
         sources: sources.documents,
         jobs: jobs.documents,
         candidates: candidates.documents,
@@ -306,7 +357,10 @@ export default async function handler(request, response) {
         audits: audits.documents,
         searches: searches.documents,
         genreCaches: genreCaches.documents,
-      }),
+      });
+    diagnostics.candidates = await attachSignedAssetUrls(getAdminBucket(), diagnostics.candidates);
+    return response.status(200).json({
+      ...diagnostics,
       eventSuppressions: suppressions.documents,
       collectionHealth: Object.fromEntries(
         ["sources", "discoveryJobs", "sourceCandidates", "ingestionRuns", "operationalAudit", "searchCoverage", "artistGenreCache", "eventSuppressions"]

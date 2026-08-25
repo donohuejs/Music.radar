@@ -1,4 +1,4 @@
-import { getAdminDb } from "../lib/server/firebaseAdmin.js";
+import { getAdminBucket, getAdminDb } from "../lib/server/firebaseAdmin.js";
 import {
   claimDiscoveryJob,
   discoveryFailureState,
@@ -11,6 +11,7 @@ import { sourceDocument } from "../lib/server/sourceRegistry.js";
 import { discoverLocationSourceBatch } from "../lib/server/sourceDiscovery.js";
 import { fetchLocalVenueEvents } from "../lib/server/localVenues.js";
 import { extractPosterDrafts } from "../lib/server/posterDrafts.js";
+import { attachSignedAssetUrls } from "../lib/server/mediaLeads.js";
 
 function authorized(request) {
   const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "");
@@ -202,9 +203,14 @@ export default async function handler(request, response) {
   if (!db) return response.status(503).json({ error: "Firebase Admin is not configured." });
 
   if (request.method === "GET") {
-    const snapshot = await db.collection("sourceCandidates").limit(250).get();
+    const snapshot = await db
+      .collection("sourceCandidates")
+      .where("status", "==", "needs-extraction")
+      .limit(100)
+      .get();
+    const candidates = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     return response.status(200).json({
-      candidates: snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+      candidates: await attachSignedAssetUrls(getAdminBucket(), candidates, { expiresInMs: 30 * 60 * 1000 }),
     });
   }
 
@@ -221,7 +227,13 @@ export default async function handler(request, response) {
     if (!candidateId || !/^[a-f0-9]{64}$/i.test(assetHash) || !extractedText) {
       return response.status(400).json({ error: "Candidate id, asset hash, and extracted text are required." });
     }
-    const posterDrafts = extractPosterDrafts(extractedText, { candidateId });
+    const candidateSnapshot = await db.collection("sourceCandidates").doc(candidateId).get();
+    const candidate = candidateSnapshot.exists ? candidateSnapshot.data() : {};
+    const posterDrafts = extractPosterDrafts(extractedText, {
+      candidateId,
+      referenceDate: candidate.capturedAt || candidate.submittedAt || null,
+      statedWeekday: candidate.statedWeekday || null,
+    });
     await db
       .collection("sourceCandidates")
       .doc(candidateId)
