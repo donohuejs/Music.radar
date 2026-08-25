@@ -69,8 +69,6 @@ export default function DirectionsChooser({ event, preferredApp, onChoose, onClo
               className={preferredApp === option.value ? "is-preferred" : ""}
               href={buildMapUrl(option.value, event)}
               key={option.value}
-              target="_blank"
-              rel="noreferrer"
               onClick={() => onChoose(option.value, remember)}
             >
               <span>

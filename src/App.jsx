@@ -285,8 +285,6 @@ function EventCard({ event, preferredMapApp, onChooseDirections, timeZone }) {
                 <a
                   className="button button--small button--directions"
                   href={preferredDirectionsUrl}
-                  target="_blank"
-                  rel="noreferrer"
                   aria-label={`Directions with ${mapAppLabel(preferredMapApp)}`}
                 >
                   Directions

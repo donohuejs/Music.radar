@@ -19,17 +19,24 @@ function coordinate(value, minimum, maximum) {
 }
 
 export function mapDestination(event = {}) {
+  const query = [event.venueName, event.address, event.city, event.state, event.postalCode]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .join(", ");
+
+  // Calendar coordinates can identify the publisher or discovery area instead
+  // of the event entrance. A supplied venue address is the safer destination.
+  if (query && (event.address || event.city || event.postalCode)) {
+    return { coordinates: null, query };
+  }
+
   const latitude = coordinate(event.latitude, -90, 90);
   const longitude = coordinate(event.longitude, -180, 180);
   if (latitude !== null && longitude !== null) {
     return { coordinates: `${latitude},${longitude}`, query: null };
   }
 
-  const query = [event.venueName, event.address, event.city, event.state, event.postalCode]
-    .map((value) => String(value || "").trim())
-    .filter(Boolean)
-    .filter((value, index, values) => values.indexOf(value) === index)
-    .join(", ");
   return query ? { coordinates: null, query } : null;
 }
 
@@ -39,12 +46,13 @@ export function buildMapUrl(app, event) {
   const value = destination.coordinates || destination.query;
 
   if (app === "apple") {
-    const url = new URL("https://maps.apple.com/directions");
-    url.searchParams.set("destination", value);
+    const url = new URL("https://maps.apple.com/");
+    url.searchParams.set("daddr", value);
+    url.searchParams.set("dirflg", "d");
     return url.toString();
   }
   if (app === "waze") {
-    const url = new URL("https://www.waze.com/ul");
+    const url = new URL("https://waze.com/ul");
     url.searchParams.set(destination.coordinates ? "ll" : "q", value);
     url.searchParams.set("navigate", "yes");
     url.searchParams.set("utm_source", "music_radar");
@@ -54,6 +62,7 @@ export function buildMapUrl(app, event) {
   const url = new URL("https://www.google.com/maps/dir/");
   url.searchParams.set("api", "1");
   url.searchParams.set("destination", value);
+  url.searchParams.set("dir_action", "navigate");
   url.searchParams.set("utm_source", "music_radar");
   url.searchParams.set("utm_campaign", "directions_request");
   return url.toString();
