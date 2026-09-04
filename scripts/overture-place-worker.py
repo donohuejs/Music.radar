@@ -15,9 +15,13 @@ SECRET = os.environ.get("MUSIC_RADAR_INGEST_SECRET", "")
 STAC_URL = "https://stac.overturemaps.org/"
 CATEGORY_PATTERN = (
     "live_music|music_venue|concert|jazz|performing_arts|cultural_center|"
-    "art_gallery|art_center|arts_center|nightclub|event_venue|auditorium|opera_house"
+    "art_gallery|art_center|arts_center|nightclub|event_venue|auditorium|opera_house|"
+    "food_hall|food_court|public_market|marketplace|shopping_center|shopping_mall|"
+    "community_center|community_centre|visitor_center|visitor_centre|tourist_information|"
+    "tourism|arts_district|mixed_use"
 )
-ARTS_NAME_PATTERN = "music|arts?|jazz|theat|cultur|perform|creative|sound|gallery|concert|opera"
+ARTS_NAME_PATTERN = r"\b(?:music|arts?|jazz|theatre|theater|cultural|performing|creative|sound|gallery|concert|opera)\b"
+COMMUNITY_NAME_PATTERN = r"\b(?:food hall|public market|arts district|community cent(?:er|re)|visitor cent(?:er|re)|visitors bureau|convention and visitors|tourism|mixed.use|downtown association)\b"
 
 
 def json_request(url, payload=None):
@@ -61,6 +65,7 @@ def query_places(connection, release, job):
           AND (
             regexp_matches(lower(CAST(taxonomy AS VARCHAR)), '{CATEGORY_PATTERN}')
             OR regexp_matches(lower(names.primary), '{ARTS_NAME_PATTERN}')
+            OR regexp_matches(lower(names.primary), '{COMMUNITY_NAME_PATTERN}')
           )
         ORDER BY confidence DESC
         LIMIT 100

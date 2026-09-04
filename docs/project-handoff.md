@@ -2,6 +2,49 @@
 
 Updated: 2026-08-25
 
+## Community-event coverage update (2026-09-04)
+
+- Shared listing/detail routes now include `/happenings`, `/our-events`, Wix
+  `/event-details`, shows, concerts, and calendars. Navigation, recurrence
+  indexes, export downloads, and related-event detail pages are not reusable
+  listings. Squarespace event-list markup selects its reusable parser even for
+  a one-event calendar; individual `?format=ical` downloads are excluded.
+- OSM/Overture seeds include food halls, markets, shopping/mixed-use hosts,
+  visitor/tourism organizations, arts districts, and community centers. Existing
+  geographic, result, page, and concurrency limits remain. No city-specific
+  discovery rules or per-event schedules were introduced.
+- JSON-LD descriptions/schema types reach category inference. Squarespace HTML
+  fallback context is scoped to the event article, not footer promotions. Mixed
+  calendars do not default every listing to music. Dedicated Radio Room and
+  Swanson's sources retain their music defaults.
+- Floating JSON-LD and fallback wall times use explicit IANA timezone metadata
+  or event/source coordinates. Correct explicit offsets remain authoritative.
+  Missing fallback time/zone and nonexistent DST wall times are not invented.
+- Shipped mixed-source backstops: `the-commons` (`json-ld-listing`, happenings)
+  and `village-west-greenville` (`squarespace`, our-events). Live collector checks
+  returned 3 and 38 events respectively, including September 4 Porch at 17:00 ET
+  and September 5 VilLive at 16:00 ET. Past entries are still excluded by the
+  existing search date filter. Village source coordinates are district-level;
+  event-provided venue names/addresses take precedence.
+- The Commons emits a wrong `-07:00` offset for displayed South Carolina wall
+  times. Its opt-in `jsonLdTimeZone: "America/New_York"` repairs that publisher's
+  dates only. Recheck/remove this override if the publisher fixes its timezone.
+- **VisitGreenvilleSC is not registered yet.** Live inspection of its Bridgeway
+  entry showed date-only JSON-LD and US-center coordinates (37.09024, -95.712891),
+  not its Simpsonville venue. The main calendar also did not expose event links
+  in fetched HTML, although the sports category did. Description inference now
+  recognizes Bridgeway's music context, but automatic publication needs a
+  reusable collector with accurate times, geocoding, and calendar pagination.
+  This release does not claim that Bridgeway is now indexed.
+- After merge/deployment, normal protected source ingestion registers the new
+  defaults (`ensureDefaultSources`) and indexes their events. Existing indexed
+  records require re-ingestion to benefit from description/category changes.
+  Do not expect PR creation alone to change production search results.
+
+Validation sources: [Commons](https://commonsgvl.com/happenings/),
+[Village](https://villagewgvl.com/our-events), and
+[Bridgeway regional entry](https://www.visitgreenvillesc.com/event/beats-brews-%26-the-bridgeway-block-party-presented-by-city-market/52626/).
+
 ## Mission
 
 Make it easy to discover live music near any location, including events that

@@ -38,6 +38,7 @@ function automaticSource(candidate, validation) {
     parser: candidate.parser,
     latitude: candidate.latitude,
     longitude: candidate.longitude,
+    ...(candidate.timeZone ? { timeZone: candidate.timeZone } : {}),
     category: null,
     categoryMode: "mixed",
     enabled: true,
